@@ -34,4 +34,10 @@ esac
 touch-p --no-create -- "$DONE_FILE"
 
 export TODO_DIR DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
-exec todo.sh -A "$@"
+finally()
+{
+    [ -s "${TODO_DIR}/todo.txt" ] || rm -- "${TODO_DIR}/todo.txt" 2>/dev/null
+}
+trap finally EXIT
+
+todo.sh -A "$@"
