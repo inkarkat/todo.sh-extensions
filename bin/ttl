@@ -24,33 +24,64 @@ determineLocalTodoDir()
 
 printUsage()
 {
-    determineLocalTodoDir
-    local archiveDestination='.git/todo if within a Git working copy or else into ~/.local/share/todo-local/<path+to+dir>/done.txt'
-    [ -n "$TODO_DIR" ] && archiveDestination="${DONE_DIR:?}/done.txt"
+    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] action [task_number] [task_description] [-?|-h|--help]'
 
-    cat <<HELPTEXT
-Local task list, using ${TODO_DIR:-"a todo.txt found in the current directory or one of its
-parents"}${TODO_DIR:+/todo.txt}, and auto-archives into $archiveDestination
+    determineLocalTodoDir
+    if [ -n "$TODO_DIR" ]; then
+	cat <<HELPTEXT
+Local task list, using ${TODO_DIR}/todo.txt, and auto-archives into ${DONE_DIR:?}/done.txt
+Add -g|--global (or change directory) to access the global task list instead.
 HELPTEXT
-    echo
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[TODOTXT_ARGs ...] action [task_number] [task_description] [-?|-h|--help]'
+	echo
+	printf %s "$usageHelp"
+    else {
+	cat <<HELPTEXT
+Global or local task list, for the latter using a todo.txt found in the current
+directory or one of its parents, and auto-archives into .git/todo if within a
+Git working copy or else into ~/.local/share/todo-local/<path+to+dir>/done.txt
+Create an empty local task list via
+HELPTEXT
+	printf '    "%s" or "%q %s" (or initialize a Git repo here).\n' 'touch todo.txt' "$(basename "$1")" 'init [DIR]'
+	echo
+	printf %s "$usageHelp"
+	[ "$scope" = 'local' ] || todo.sh help | sed -e '1{ /^[[:space:]]*Usage: /d }'
+	} | "${PAGER:-less}" --RAW-CONTROL-CHARS
+    fi
 }
-case "$1" in
-    help|--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
-    init)		shift
+scope=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	help|--help|-h|-\?)
+			if [ "$scope" = 'global' ]; then
+			    exec todo.sh "$@"
+			else
+			    printUsage "$0"; exit 0
+			fi
+			;;
+	--global|-g)	shift; scope='global';;
+	--local|-l)	shift; scope='local';;
+	init)		shift
 			[ $# -eq 0 ] || cd "$1" || exit $?
 			touch todo.txt
 			exit $?
 			;;
-esac
-determineLocalTodoDir
+	*)		break;;
+    esac
+done
+
+[ "$scope" = 'global' ] || determineLocalTodoDir
 if [ -z "$TODO_DIR" ]; then
-    cat <<ERRORTEXT
+    if [ "$scope" = 'local' ]; then
+	cat <<ERRORTEXT
 ERROR: No local todo.txt found in the current directory or one of its parents
        (and this also isn't a Git working copy). Create an empty task list via
        "touch todo.txt" or "$(basename "$0") init [DIR]" (or initialize a Git repo here).
 ERRORTEXT
-    exit 1
+	exit 1
+    else
+	exec todo.sh "$@"
+    fi
 fi
 
 TODO_FILE="${TODO_DIR:?}/todo.txt"
