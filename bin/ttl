@@ -9,8 +9,7 @@ if [ -n "$TODO_DIR" ]; then
 	DONE_DIR="${gitDir}/todo"
     fi
 else
-    currentDir="$PWD"
-    TODO_DIR="$(cd ~/.local/share/todo-local 2>/dev/null && pathAsFilename --decode -- * | grep --fixed-strings --line-regexp "$currentDir")"
+    TODO_DIR="$(findup --exec sh -c 'cd ~/.local/share/todo-local 2>/dev/null && pathAsFilename --decode -- * | grep --fixed-strings --line-regexp "$1" || :' sh {} \; -- . | head -n 1)"
 fi
 if [ -z "$TODO_DIR" ]; then
     TODO_DIR="$(findup --stop-at-first todo.txt 2>/dev/null | inputToArg dirname)"
