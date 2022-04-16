@@ -1,0 +1,37 @@
+#!/bin/bash
+
+TODO_DIR="$(git root 2>/dev/null)"
+DONE_FILE=''
+if [ -n "$TODO_DIR" ]; then
+    gitDir=$(git rev-parse --absolute-git-dir 2>/dev/null)
+    if [ -n "$gitDir" ]; then
+	DONE_FILE="${gitDir}/todo/done.txt"
+    fi
+else
+    TODO_DIR="$(findup --stop-at-first todo.txt 2>/dev/null | inputToArg dirname)"
+fi
+if [ -z "$DONE_FILE" ]; then
+    DONE_FILE="${HOME}/.local/share/todo-local/$(pathAsFilename --encode "$PWD")/done.txt"
+fi
+
+printUsage()
+{
+    local archiveDestination='.git/todo if within a Git working copy or else into ~/.local/share/todo-local/<path+to+dir>/done.txt'
+    [ -n "$TODO_DIR" ] && archiveDestination="${DONE_FILE:?}"
+
+    cat <<HELPTEXT
+Local task list, using ${TODO_DIR:-"a todo.txt found in the current directory or one of its
+parents"}${TODO_DIR:+/todo.txt}, and auto-archives into $archiveDestination
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[TODOTXT_ARGs ...] action [task_number] [task_description] [-?|-h|--help]'
+}
+case "$1" in
+    help|--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+esac
+
+[ -d "$TODO_DIR" ] || mkdir --parents -- "$TODO_DIR"
+touch-p --no-create -- "$DONE_FILE"
+
+export TODO_DIR DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
+exec todo.sh -A "$@"
