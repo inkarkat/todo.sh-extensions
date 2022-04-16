@@ -1,5 +1,4 @@
 #!/bin/bash
-shopt -qs nullglob
 
 TODO_DIR="$(git root 2>/dev/null)"
 DONE_DIR=''
@@ -9,7 +8,8 @@ if [ -n "$TODO_DIR" ]; then
 	DONE_DIR="${gitDir}/todo"
     fi
 else
-    TODO_DIR="$(findup --exec sh -c 'cd ~/.local/share/todo-local 2>/dev/null && pathAsFilename --decode -- * | grep --fixed-strings --line-regexp "$1" || :' sh {} \; -- . | head -n 1)"
+    readarray -t localTodoDirspecs < <(shopt -qs nullglob; cd ~/.local/share/todo-local 2>/dev/null && pathAsFilename --decode -- *)
+    [ ${#localTodoDirspecs[@]} -eq 0 ] || TODO_DIR="$(findup --exec negateThis filterArg --first -- {} "${localTodoDirspecs[@]}" \; -- .)"
 fi
 if [ -z "$TODO_DIR" ]; then
     TODO_DIR="$(findup --stop-at-first todo.txt 2>/dev/null | inputToArg dirname)"
