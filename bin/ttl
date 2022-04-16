@@ -26,6 +26,14 @@ printInitHelp()
 {
     printf '    "%s" or "%q %s" (or initialize a Git repo here).\n' 'touch todo.txt' "$(basename "$1")" 'init [DIR]'
 }
+printNoLocalError()
+{
+    cat <<ERRORTEXT
+ERROR: No local todo.txt found in the current directory or one of its parents
+       (and this also isn't a Git working copy). Create an empty task list via
+ERRORTEXT
+    printInitHelp "$1"
+}
 printUsage()
 {
     local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] action [task_number] [task_description] [-?|-h|--help]'
@@ -77,11 +85,7 @@ done
 [ "$scope" = 'global' ] || determineLocalTodoDir
 if [ -z "$TODO_DIR" ]; then
     if [ "$scope" = 'local' ]; then
-	cat <<ERRORTEXT
-ERROR: No local todo.txt found in the current directory or one of its parents
-       (and this also isn't a Git working copy). Create an empty task list via
-ERRORTEXT
-	printInitHelp
+	printNoLocalError "$0" >&2
 	exit 1
     else
 	exec todo.sh "$@"
