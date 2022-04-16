@@ -1,4 +1,4 @@
 #!/bin/sh source-this-script
 
-alias tt=todo.sh
+alias tt='todo-local.sh'
 complete -F _todo tt
