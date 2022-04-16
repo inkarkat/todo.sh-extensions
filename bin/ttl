@@ -22,6 +22,10 @@ determineLocalTodoDir()
     fi
 }
 
+printInitHelp()
+{
+    printf '    "%s" or "%q %s" (or initialize a Git repo here).\n' 'touch todo.txt' "$(basename "$1")" 'init [DIR]'
+}
 printUsage()
 {
     local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] action [task_number] [task_description] [-?|-h|--help]'
@@ -41,7 +45,7 @@ directory or one of its parents, and auto-archives into .git/todo if within a
 Git working copy or else into ~/.local/share/todo-local/<path+to+dir>/done.txt
 Create an empty local task list via
 HELPTEXT
-	printf '    "%s" or "%q %s" (or initialize a Git repo here).\n' 'touch todo.txt' "$(basename "$1")" 'init [DIR]'
+	printInitHelp "$1"
 	echo
 	printf %s "$usageHelp"
 	[ "$scope" = 'local' ] || todo.sh help | sed -e '1{ /^[[:space:]]*Usage: /d }'
@@ -76,8 +80,8 @@ if [ -z "$TODO_DIR" ]; then
 	cat <<ERRORTEXT
 ERROR: No local todo.txt found in the current directory or one of its parents
        (and this also isn't a Git working copy). Create an empty task list via
-       "touch todo.txt" or "$(basename "$0") init [DIR]" (or initialize a Git repo here).
 ERRORTEXT
+	printInitHelp
 	exit 1
     else
 	exec todo.sh "$@"
