@@ -37,6 +37,11 @@ touch-p --no-create -- "$TODO_FILE" "$DONE_FILE"
 export TODO_DIR TODO_FILE DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
 finally()
 {
+    # Move the backup copy into the DONE_DIR so that it's out of sight (but
+    # still accessible should it be necessary to undo the last modification).
+    [ -r "${TODO_FILE}.bak" ] && mv --force -- "${TODO_FILE}.bak" "${DONE_DIR}/"
+
+    # Remove a completely empty todo.txt file.
     [ -s "$TODO_FILE" ] || rm -- "$TODO_FILE" 2>/dev/null
 }
 trap finally EXIT
