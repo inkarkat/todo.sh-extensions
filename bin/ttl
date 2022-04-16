@@ -30,13 +30,13 @@ case "$1" in
     help|--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
 esac
 
-[ -d "$TODO_DIR" ] || mkdir --parents -- "$TODO_DIR"
-touch-p --no-create -- "$DONE_FILE"
+TODO_FILE="${TODO_DIR}/todo.txt"
+touch-p --no-create -- "$TODO_FILE" "$DONE_FILE"
 
-export TODO_DIR DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
+export TODO_DIR TODO_FILE DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
 finally()
 {
-    [ -s "${TODO_DIR}/todo.txt" ] || rm -- "${TODO_DIR}/todo.txt" 2>/dev/null
+    [ -s "$TODO_FILE" ] || rm -- "$TODO_FILE" 2>/dev/null
 }
 trap finally EXIT
 
