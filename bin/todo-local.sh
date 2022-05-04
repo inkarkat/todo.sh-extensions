@@ -65,7 +65,7 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	help|--help|-h|-\?)
-			if [ "$scope" = 'global' ]; then
+			if [ $# -gt 1 -o "$scope" = 'global' ]; then
 			    exec todo.sh "$@"
 			else
 			    printUsage "$0"; exit 0
