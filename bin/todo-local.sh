@@ -36,7 +36,7 @@ ERRORTEXT
 }
 printUsage()
 {
-    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] action [task_number] [task_description] [-?|-h|--help]'
+    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] location|ACTION [TASK_NUMBER] [TASK_DESCRIPTION] [-?|-h|--help]'
 
     determineLocalTodoDir
     if [ -n "$TODO_DIR" ]; then
@@ -70,6 +70,12 @@ do
 			else
 			    printUsage "$0"; exit 0
 			fi
+			;;
+	location)	shift
+			determineLocalTodoDir
+			[ -n "$TODO_DIR" -a -n "$DONE_DIR" ] || exit 1
+			printf '%s\n' "$TODO_DIR" "$DONE_DIR"
+			exit 0
 			;;
 	--global|-g)	shift; scope='global';;
 	--local|-l)	shift; scope='local';;
