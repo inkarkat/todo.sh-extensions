@@ -1,13 +1,13 @@
-#!/bin/sh source-this-script
+#!/bin/bash source-this-script
 
 _PS1Panel_todo()
 {
     [ -n "${_PS1TodoLocalTodoDir:-}" ] \
-	&& typeset localTodoFilespec="${_PS1TodoLocalTodoDir}/todo.txt" \
+	&& local localTodoFilespec="${_PS1TodoLocalTodoDir}/todo.txt" \
 	&& [ -r "$localTodoFilespec" ] \
 	|| return
 
-    typeset todoCount="$(wc --lines <"$localTodoFilespec")"
+    local todoCount="$(wc --lines <"$localTodoFilespec")"
     [ $todoCount -gt 0 ] || return
 
     printf 'TODO:%d\n' "$todoCount"
