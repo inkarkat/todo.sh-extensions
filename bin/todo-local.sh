@@ -1,5 +1,21 @@
 #!/bin/bash
 
+: ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
+: ${TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND='git-brname --real-branch-only 2>/dev/null | grep --invert-match --fixed-strings --line-regexp "$(git-mbr --get 2>/dev/null)"'}    # Add the (non-master) branch name as context to each added task.
+
+addRepoData()
+{
+    local prefix
+    if [ -n "$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND" ]; then
+	prefix="$(eval "$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND")"
+	export TODOTXT_ADD_PREFIX="${prefix:+@}${prefix}${prefix:+ }${TODOTXT_ADD_PREFIX}"
+    fi
+    if [ -n "$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND" ]; then
+	prefix="$(eval "$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND")"
+	export TODOTXT_ADD_PREFIX="${prefix:++}${prefix}${prefix:+ }${TODOTXT_ADD_PREFIX}"
+    fi
+}
+
 determineLocalTodoDir()
 {
     TODO_DIR="$(git root 2>/dev/null)"
@@ -9,6 +25,7 @@ determineLocalTodoDir()
 	if [ -n "$gitDir" ]; then
 	    DONE_DIR="${gitDir}/todo"
 	fi
+	addRepoData
     else
 	typeset -a localTodoDirspecs=(); readarray -t localTodoDirspecs < <(shopt -qs nullglob; cd ~/.local/share/todo-local 2>/dev/null && pathAsFilename --decode -- *)
 	[ ${#localTodoDirspecs[@]} -eq 0 ] || TODO_DIR="$(findup --exec negateThis filterArg --first -- {} "${localTodoDirspecs[@]}" \; -- .)"
