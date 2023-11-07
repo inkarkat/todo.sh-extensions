@@ -94,10 +94,12 @@ if [ -z "$TODO_DIR" ]; then
 	printNoLocalError "$0" >&2
 	exit 1
     else
+	# Global scope.
 	exec todo.sh "$@"
     fi
 fi
 
+# Local scope.
 TODO_FILE="${TODO_DIR:?}/todo.txt"
 DONE_FILE="${DONE_DIR:?}/done.txt"
 touch-p --no-create -- "$TODO_FILE" "$DONE_FILE"
