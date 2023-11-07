@@ -1,7 +1,11 @@
 #!/bin/bash
 
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
-: ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
+if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
+    : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND='! git-issubmodule 2>/dev/null || git-subname 2>/dev/null'}   # Add the current submodule name as project to each added task.
+else
+    : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
+fi
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND='git-brname --real-branch-only 2>/dev/null | grep --invert-match --fixed-strings --line-regexp "$(git-mbr --get 2>/dev/null)"'}    # Add the (non-master) branch name as context to each added task.
 
 addRepoData()
