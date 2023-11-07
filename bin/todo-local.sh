@@ -1,5 +1,6 @@
 #!/bin/bash
 
+: ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND='git-brname --real-branch-only 2>/dev/null | grep --invert-match --fixed-strings --line-regexp "$(git-mbr --get 2>/dev/null)"'}    # Add the (non-master) branch name as context to each added task.
 
@@ -18,10 +19,14 @@ addRepoData()
 
 determineLocalTodoDir()
 {
-    TODO_DIR="$(git root 2>/dev/null)"
+    TODO_DIR="$(
+	[ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ] \
+	    && git superproject --print-toplevel 2>/dev/null \
+	    || git root 2>/dev/null
+    )"
     DONE_DIR=''
     if [ -n "$TODO_DIR" ]; then
-	local gitDir=$(git rev-parse --absolute-git-dir 2>/dev/null)
+	local gitDir="$(cd "$TODO_DIR" && git rev-parse --absolute-git-dir 2>/dev/null)"
 	if [ -n "$gitDir" ]; then
 	    DONE_DIR="${gitDir}/todo"
 	fi
