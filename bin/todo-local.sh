@@ -2,7 +2,7 @@
 
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
-    : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND='! git-issubmodule 2>/dev/null || git-subname 2>/dev/null'}   # Add the current submodule name as project to each added task.
+    : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND='! git-issubmodule 2>/dev/null || git-subname --reponame 2>/dev/null'}   # Add the current submodule name as project to each added task.
 else
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
 fi
