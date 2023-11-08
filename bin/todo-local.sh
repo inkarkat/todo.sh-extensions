@@ -138,7 +138,10 @@ finally()
     [ -r "${TODO_FILE}.bak" ] && mv --force -- "${TODO_FILE}.bak" "${DONE_DIR}/"
 
     # Remove a completely empty todo.txt file.
-    [ -s "$TODO_FILE" ] || rm -- "$TODO_FILE" 2>/dev/null
+    if [ ! -s "$TODO_FILE" ]; then
+	rm -- "$TODO_FILE" 2>/dev/null \
+	    && echo 'TODO: All local tasks completed.'
+    fi
 }
 trap finally EXIT
 
