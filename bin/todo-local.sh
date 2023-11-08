@@ -130,6 +130,7 @@ TODO_FILE="${TODO_DIR:?}/todo.txt"
 DONE_FILE="${DONE_DIR:?}/done.txt"
 touch-p --no-create -- "$TODO_FILE" "$DONE_FILE"
 
+hadTodos=; [ -s "$TODO_FILE" ] && hadTodos=t
 export TODO_DIR TODO_FILE DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
 finally()
 {
@@ -140,6 +141,7 @@ finally()
     # Remove a completely empty todo.txt file.
     if [ ! -s "$TODO_FILE" ]; then
 	rm -- "$TODO_FILE" 2>/dev/null \
+	    && [ "$hadTodos" ] \
 	    && echo 'TODO: All local tasks completed.'
     fi
 }
