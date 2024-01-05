@@ -43,6 +43,14 @@ determineLocalTodoDir()
 	TODO_DIR="$(findup --stop-at-first todo.txt 2>/dev/null | inputToArg dirname)"
     fi
 
+    # Don't treat the global todo.txt as local when we're just in the TODO_DIR; we
+    # don't want auto-archiving and a redirected DONE_FILE then.
+    if [ -n "$TODO_DIR" ] && [ "$TODO_DIR" = "$(todo.sh config TODO_DIR)" ]; then
+	TODO_DIR=''
+	DONE_DIR=''
+	return
+    fi
+
     if [ -z "$DONE_DIR" -a -n "$TODO_DIR" ]; then
 	DONE_DIR="${HOME}/.local/share/todo-local/$(pathAsFilename --encode "$TODO_DIR")"
     fi
