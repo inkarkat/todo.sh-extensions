@@ -136,10 +136,11 @@ fi
 # Local scope.
 TODO_FILE="${TODO_DIR:?}/todo.txt"
 DONE_FILE="${DONE_DIR:?}/done.txt"
+TRASH_FILE="${DONE_DIR:?}/trash.txt"
 touch-p --no-create -- "$TODO_FILE" "$DONE_FILE"
 
 hadTodos=; [ -s "$TODO_FILE" ] && hadTodos=t
-export TODO_DIR TODO_FILE DONE_FILE REPORT_FILE=/dev/null TODOTXT_BACKUP_DIR=''
+export TODO_DIR TODO_FILE DONE_FILE REPORT_FILE=/dev/null TRASH_FILE TODOTXT_BACKUP_DIR=''
 finally()
 {
     # Move the backup copy into the DONE_DIR so that it's out of sight (but
