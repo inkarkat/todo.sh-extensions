@@ -1,4 +1,5 @@
 #!/bin/bash
+set -o pipefail
 
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
@@ -104,13 +105,21 @@ HELPTEXT
 	} | "${PAGER:-less}" --RAW-CONTROL-CHARS
     fi
 }
+
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+wrappee()
+{
+    eval 'todo.sh "$@"' \
+	"${pager:+|}" '"${pager[@]}"'
+}
+
 scope=
 while [ $# -ne 0 ]
 do
     case "$1" in
 	help|--help|-h|-\?)
 			if [ $# -gt 1 -o "$scope" = 'global' ]; then
-			    exec todo.sh "$@"
+			    wrappee "$@"; exit $?
 			else
 			    printUsage "$0"; exit 0
 			fi
@@ -139,7 +148,7 @@ if [ -z "$TODO_DIR" ]; then
 	exit 1
     else
 	# Global scope.
-	exec todo.sh "$@"
+	wrappee "$@"; exit $?
     fi
 fi
 
@@ -166,4 +175,4 @@ finally()
 }
 trap finally EXIT
 
-todo.sh -A "$@"
+wrappee -A "$@"
