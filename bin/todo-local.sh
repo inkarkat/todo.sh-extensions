@@ -106,9 +106,56 @@ HELPTEXT
     fi
 }
 
+typeset -A pagerDisabledActions=(
+    [do]=''
+    [trash]=''
+)
+
+pagerDisableCheck()
+{
+    local action
+    if [ -n "$TODOTXT_DISABLE_PAGER" ]; then
+	typeset -a actions; read -r -d '' -a actions <<<"$TODOTXT_DISABLE_PAGER"
+	for action in "${actions[@]}"; do
+	    pagerDisabledActions["$action"]=''
+	done
+    fi
+
+    local action
+    typeset -a actionArgs=()
+    while [ $# -gt 0 ]
+    do
+	case "$1" in
+	    -d)	    shift; shift;;
+	    -?*)    shift;;
+	    *)	    if [ -z "$action" ]; then
+			action="$1"
+		    else
+			actionArgs+=("$1")
+		    fi
+		    shift
+		    ;;
+	    esac
+    done
+
+    for pagerAction in "${!pagerDisabledActions[@]}"
+    do
+	if [ "$pagerAction" = "$action" ]; then
+	    if [ -z "${pagerDisabledActions["$action"]}" ] \
+		|| containsGlob "${pagerDisabledActions["$action"]}" "${actionArgs[@]}"
+	    then
+		pager=()
+		case ",${DEBUG:-}," in *,todo-local,*) printf >&2 '%stodo-local: Disabling pager for %s action.\n' "$PS4" "$action";; esac
+		return
+	    fi
+	fi
+    done
+}
+
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 wrappee()
 {
+    pagerDisableCheck "$@"
     eval 'todo.sh "$@"' \
 	"${pager:+|}" '"${pager[@]}"'
 }
