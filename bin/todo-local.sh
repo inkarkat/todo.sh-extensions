@@ -106,18 +106,62 @@ HELPTEXT
     fi
 }
 
-typeset -A pagerDisabledActions=(
-    [do]=''
-    [trash]=''
+typeset -A pagerEnabledActions=(
+    [list]='' [ls]=''
+    [listall]='' [lsa]=''
+    [listaddons]=''
+    [listcon]='' [lsc]=''
+    [listfile]='' [lf]=''
+    [listpri]='' [lsp]=''
+    [listproj]='' [lsprj]=''
+    [birdseye]=''
+    [blockerview]=''
+    [cheat]=''
+    [config]=''
+    [contextstat]=''
+    [contextview]='' [cv]=''
+    [dashboard]=''
+    [depview]=''
+    [distribution]=''
+    [here]=''
+    [inout]=''
+    [last]=''
+    [latest]='' [lt]=''
+    [listblockers]=''
+    [listbydate]=''
+    [lsac]=''
+    [lsaprj]=''
+    [lsarchive]=''
+    [lsbumped]=''
+    [lsconsidered]=''
+    [lsdo]=''
+    [lsdone]=''
+    [lsdopart]=''
+    [lsdue]=''
+    [lsopportunities]=''
+    [lspriprj]=''
+    [lsr]=''
+    [lsstarted]=''
+    [lstrash]=''
+    [lstrashable]=''
+    [lstrashed]=''
+    [lswait]=''
+    [oldest]=''
+    [projectstat]=''
+    [projectview]='' [pv]=''
+    [recur]=''
+    [schedule]=''
+    [until]=''
+    [what]=''
 )
 
-pagerDisableCheck()
+pagerEnableCheck()
 {
     local action
     if [ -n "$TODOTXT_DISABLE_PAGER" ]; then
 	typeset -a actions; read -r -d '' -a actions <<<"$TODOTXT_DISABLE_PAGER"
 	for action in "${actions[@]}"; do
-	    pagerDisabledActions["$action"]=''
+	    pagerEnabledActions["$action"]=''
 	done
     fi
 
@@ -138,24 +182,26 @@ pagerDisableCheck()
 	    esac
     done
 
-    for pagerAction in "${!pagerDisabledActions[@]}"
+    local isUsePager=
+    for pagerAction in "${!pagerEnabledActions[@]}"
     do
 	if [ "$pagerAction" = "$action" ]; then
-	    if [ -z "${pagerDisabledActions["$action"]}" ] \
-		|| containsGlob "${pagerDisabledActions["$action"]}" "${actionArgs[@]}"
+	    if [ -z "${pagerEnabledActions["$action"]}" ] \
+		|| containsGlob "${pagerEnabledActions["$action"]}" "${actionArgs[@]}"
 	    then
-		pager=()
-		case ",${DEBUG:-}," in *,todo-local,*) printf >&2 '%stodo-local: Disabling pager for %s action.\n' "$PS4" "$action";; esac
-		return
+		isUsePager=t
+		case ",${DEBUG:-}," in *,todo-local,*) printf >&2 '%stodo-local: Enabling pager for %s action.\n' "$PS4" "$action";; esac
+		break
 	    fi
 	fi
     done
+    [ -n "$isUsePager" ] || pager=()
 }
 
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 wrappee()
 {
-    pagerDisableCheck "$@"
+    [ ${#pager[@]} -eq 0 ] || pagerEnableCheck "$@"
     eval 'todo.sh "$@"' \
 	"${pager:+|}" '"${pager[@]}"'
 }
