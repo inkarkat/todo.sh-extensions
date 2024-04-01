@@ -106,9 +106,102 @@ HELPTEXT
     fi
 }
 
+typeset -A pagerEnabledActions=(
+    [list]='' [ls]=''
+    [listall]='' [lsa]=''
+    [listaddons]=''
+    [listcon]='' [lsc]=''
+    [listfile]='' [lf]=''
+    [listpri]='' [lsp]=''
+    [listproj]='' [lsprj]=''
+    [birdseye]=''
+    [blockerview]=''
+    [cheat]=''
+    [config]=''
+    [contextstat]=''
+    [contextview]='' [cv]=''
+    [dashboard]=''
+    [depview]=''
+    [distribution]=''
+    [here]=''
+    [inout]=''
+    [last]=''
+    [latest]='' [lt]=''
+    [listblockers]=''
+    [listbydate]=''
+    [lsac]=''
+    [lsaprj]=''
+    [lsarchive]=''
+    [lsbumped]=''
+    [lsconsidered]=''
+    [lsdo]=''
+    [lsdone]=''
+    [lsdopart]=''
+    [lsdue]=''
+    [lsopportunities]=''
+    [lspriprj]=''
+    [lsr]=''
+    [lsstarted]=''
+    [lstrash]=''
+    [lstrashable]=''
+    [lstrashed]=''
+    [lswait]=''
+    [oldest]=''
+    [projectstat]=''
+    [projectview]='' [pv]=''
+    [recur]=''
+    [schedule]=''
+    [until]=''
+    [what]=''
+)
+
+pagerEnableCheck()
+{
+    local action
+    if [ -n "$TODOTXT_DISABLE_PAGER" ]; then
+	typeset -a actions; read -r -d '' -a actions <<<"$TODOTXT_DISABLE_PAGER"
+	for action in "${actions[@]}"; do
+	    pagerEnabledActions["$action"]=''
+	done
+    fi
+
+    local action
+    typeset -a actionArgs=()
+    while [ $# -gt 0 ]
+    do
+	case "$1" in
+	    -d)	    shift; shift;;
+	    -?*)    shift;;
+	    *)	    if [ -z "$action" ]; then
+			action="$1"
+		    else
+			actionArgs+=("$1")
+		    fi
+		    shift
+		    ;;
+	    esac
+    done
+
+    local isUsePager=
+    for pagerAction in "${!pagerEnabledActions[@]}"
+    do
+	if [ "$pagerAction" = "$action" ]; then
+	    if [ -z "${pagerEnabledActions["$action"]}" ] \
+		|| containsGlob "${pagerEnabledActions["$action"]}" "${actionArgs[@]}"
+	    then
+		isUsePager=t
+		case ",${DEBUG:-}," in *,todo-local,*) printf >&2 '%stodo-local: Enabling pager for %s action.\n' "$PS4" "$action";; esac
+		break
+	    fi
+	fi
+    done
+    [ -n "$isUsePager" ] || pager=()
+}
+
 typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 wrappee()
 {
+    [ ${#pager[@]} -eq 0 ] || pagerEnableCheck "$@"
     eval 'todo.sh "$@"' \
 	"${pager:+|}" '"${pager[@]}"'
 }
