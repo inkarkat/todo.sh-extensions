@@ -56,7 +56,7 @@ determineLocalTodoDir()
 
     # Don't treat the global todo.txt as local when we're just in the TODO_DIR; we
     # don't want auto-archiving and a redirected DONE_FILE then.
-    if [ -n "$TODO_DIR" ] && [ "$TODO_DIR" = "$(todo.sh config TODO_DIR)" ]; then
+    if [ -n "$TODO_DIR" ] && [ "$TODO_DIR" = "$(todo.sh config TODO_DIR 2>/dev/null)" ]; then
 	TODO_DIR=''
 	DONE_DIR=''
 	return
