@@ -4,10 +4,12 @@ set -o pipefail
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND='! git-issubmodule 2>/dev/null || git-subname --reponame 2>/dev/null'}   # Add the current submodule name as project to each added task.
+    : ${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT=submodule}
 else
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
 fi
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND='git-brname --real-branch-only 2>/dev/null | grep --invert-match --fixed-strings --line-regexp "$(git-mbr --get 2>/dev/null)"'}    # Add the (non-master) branch name as context to each added task.
+: ${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT=branch}
 
 addRepoData()
 {
@@ -20,7 +22,7 @@ addRepoData()
 	    if [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " @${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; then
 		# Only add the context (non-master branch) if it has already been used in a task.
 		export TODOTXT_HERE_DESIGNATOR="@${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-		export TODOTXT_HERE_SCOPE_NAME='working copy'
+		export TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT:-working copy}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
 	    fi
 	fi
     fi
@@ -31,7 +33,7 @@ addRepoData()
 
 	    # Always add the project (current submodule), even if it has not been used yet.
 	    export TODOTXT_HERE_DESIGNATOR="+${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-	    export TODOTXT_HERE_SCOPE_NAME='working copy'
+	    export TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT:-working copy}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
 	fi
     fi
 }
