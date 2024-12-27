@@ -75,7 +75,7 @@ determineLocalTodoDir()
 
 printInitHelp()
 {
-    printf '    "%s" or "%q %s" (or initialize a Git repo here).\n' 'touch todo.txt' "$(basename "$1")" 'init [DIR]'
+    printf '    $ touch todo.txt # or\n    $ %q init [DIR] # or\n    $ git init . # initialize a Git repo here\n' "$(basename "$1")"
 }
 printNoLocalError()
 {
@@ -87,7 +87,7 @@ ERRORTEXT
 }
 printUsage()
 {
-    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] location|ACTION [TASK_NUMBER] [TASK_DESCRIPTION] [-?|-h|--help]'
+    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] location|ACTION [NR] [TASK_DESCRIPTION] [-?|-h|--help]'
 
     determineLocalTodoDir
     if [ -n "$TODO_DIR" ]; then
