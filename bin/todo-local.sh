@@ -128,7 +128,6 @@ typeset -A pagerEnabledActions=(
     [contextview]='' [cv]=''
     [dashboard]=''
     [depview]=''
-    [distribution]=''
     [here]=''
     [inout]=''
     [last]=''
