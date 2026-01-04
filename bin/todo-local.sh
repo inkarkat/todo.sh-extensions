@@ -131,6 +131,7 @@ typeset -A pagerEnabledActions=(
     [here]=''
     [inout]=''
     [last]=''
+    [lastyear]='!(distribution)'
     [latest]='' [lt]=''
     [listblockers]=''
     [listbydate]=''
@@ -192,7 +193,7 @@ pagerEnableCheck()
     do
 	if [ "$pagerAction" = "$action" ]; then
 	    if [ -z "${pagerEnabledActions["$action"]}" ] \
-		|| containsGlob "${pagerEnabledActions["$action"]}" "${actionArgs[@]}"
+		|| whiteOrBlackListGlob "${pagerEnabledActions["$action"]}" "${actionArgs[@]}"
 	    then
 		isUsePager=t
 		case ",${DEBUG:-}," in *,todo-local,*) printf >&2 '%stodo-local: Enabling pager for %s action.\n' "$PS4" "$action";; esac
