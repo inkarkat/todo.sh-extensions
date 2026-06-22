@@ -4,19 +4,33 @@ set -o pipefail
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND='! git-issubmodule 2>/dev/null || git-subname --reponame 2>/dev/null'}   # Add the current submodule name as project to each added task.
+    : ${TODOTXT_LOCAL_GITREPO_PROJECT_CONTRAINDICATION_COMMAND='prefix --exec git-superdo --no-header sublist \; + 2>/dev/null'}    # Don't add the submodule name as context if any other submodule is explicitly mentioned as a context in the task.
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT=submodule}
 else
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
 fi
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND='git-brname --real-branch-only 2>/dev/null | grep --invert-match --fixed-strings --line-regexp "$(git-mbr --get 2>/dev/null)"'}    # Add the (non-master) branch name as context to each added task.
+: ${TODOTXT_LOCAL_GITREPO_CONTEXT_CONTRAINDICATION_COMMAND='prefix --exec git-br \; @ 2>/dev/null'}    # Don't add the branch name as context if any other branch is explicitly mentioned as a context in the task.
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT=branch}
+
+hasContraindication()
+{
+    local contraindicationSourceCommand="${1?}"; shift
+    typeset -a contraindications=()
+    [ -n "$allargs" -a -n "$contraindicationSourceCommand" ] \
+	&& readarray -t contraindications < <(eval "$contraindicationSourceCommand") \
+	&& [ ${#contraindications[@]} -gt 0 ] \
+	&& printf ' %s \n' "$allargs" | grep --quiet --fixed-strings --file <(printf ' %s \n' "${contraindications[@]}")
+}
 
 addRepoData()
 {
     local prefix
     if [ -n "$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND" ]; then
 	prefix="$(eval "$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND")"
-	if [ -n "$prefix" ]; then
+	if [ -n "$prefix" ] \
+	    && ! hasContraindication "$TODOTXT_LOCAL_GITREPO_CONTEXT_CONTRAINDICATION_COMMAND"
+	then
 	    export TODOTXT_ADD_PREFIX="@${prefix} ${TODOTXT_ADD_PREFIX}"
 
 	    if [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " @${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; then
@@ -28,7 +42,9 @@ addRepoData()
     fi
     if [ -n "$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND" ]; then
 	prefix="$(eval "$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND")"
-	if [ -n "$prefix" ]; then
+	if [ -n "$prefix" ] \
+	    && ! hasContraindication "$TODOTXT_LOCAL_GITREPO_PROJECT_CONTRAINDICATION_COMMAND"
+	then
 	    export TODOTXT_ADD_PREFIX="+${prefix} ${TODOTXT_ADD_PREFIX}"
 
 	    # Always add the project (current submodule), even if it has not been used yet.
@@ -239,7 +255,7 @@ do
 	*)		break;;
     esac
 done
-
+allargs="$*"
 [ "$scope" = 'global' ] || determineLocalTodoDir
 if [ -z "$TODO_DIR" ]; then
     if [ "$scope" = 'local' ]; then
