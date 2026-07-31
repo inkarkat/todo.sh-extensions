@@ -212,7 +212,7 @@ pagerEnableCheck()
 		|| whiteOrBlackListGlob "${pagerEnabledActions["$action"]}" "${actionArgs[@]}"
 	    then
 		isUsePager=t
-		case ",${DEBUG:-}," in *,todo-local,*) printf >&2 '%stodo-local: Enabling pager for %s action.\n' "$PS4" "$action";; esac
+		${DEBUG:+debuglogf 'Enabling pager for %s action' "$action"}
 		break
 	    fi
 	fi

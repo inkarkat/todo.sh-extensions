@@ -9,6 +9,7 @@ My extensions for the TODO.TXT Command Line Interface (i.e. add-ons and filters)
 ### Dependencies
 
 * Bash, GNU `sed`
+* [inkarkat/shell-debugging](https://github.com/inkarkat/shell-debugging) for debugging (optional)
 
 ### Installation
 
