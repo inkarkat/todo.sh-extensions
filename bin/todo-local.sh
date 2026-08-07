@@ -1,5 +1,6 @@
 #!/bin/bash
 set -o pipefail
+shopt -qs extglob
 
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
@@ -103,7 +104,7 @@ ERRORTEXT
 }
 printUsage()
 {
-    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] location|ACTION [NR] [TASK_DESCRIPTION] [-?|-h|--help]'
+    local usageHelp; printf -v usageHelp 'Usage: %q %s\n' "$(basename "$1")" '[-g|--global|-l|--local] [TODOTXT_ARGs ...] locations|location [todo|done]|ACTION [NR] [TASK_DESCRIPTION] [-?|-h|--help]'
 
     determineLocalTodoDir
     if [ -n "$TODO_DIR" ]; then
@@ -239,10 +240,17 @@ do
 			    printUsage "$0"; exit 0
 			fi
 			;;
-	location)	shift
-			determineLocalTodoDir
+	location?(s))	determineLocalTodoDir
 			[ -n "$TODO_DIR" -a -n "$DONE_DIR" ] || exit 1
-			printf '%s\n' "$TODO_DIR" "$DONE_DIR"
+			if [ "$1" = 'locations' ]; then
+			    printf '%s\n' "$TODO_DIR" "$DONE_DIR"
+			elif [ "$2" = 'done' ]; then
+			    printf '%s\n' "$DONE_DIR"
+			elif [ "$2" = 'todo' -o -z "$2" ]; then
+			    printf '%s\n' "$TODO_DIR"
+			else
+			    printUsage "$0"; exit 2
+			fi
 			exit 0
 			;;
 	--global|-g)	shift; scope='global';;
