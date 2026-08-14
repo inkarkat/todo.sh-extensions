@@ -1,6 +1,7 @@
 #!/bin/bash
 set -o pipefail
 shopt -qs extglob
+${DEBUG:+eval $(debugtrace -o $- -- "$@")}
 
 : ${TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT=t}	# Use the topmost repository root if in a submodule.
 if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
