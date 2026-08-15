@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+unset TODOTXT_MOVEELSEWHERE_SOURCE_WHAT
+export TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT='global todo.txt file'
+export TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL=1
+export TODOTXT_MOVEELSEWHERE_DEST_ARG=''
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+
+action=$1
+shift
+
+[ "$action" = "usage" ] \
+    && TODOTXT_MOVEELSEWHERE_ACTION_NAME=movetoglobal exec "${scriptDir}/moveelsewhere" usage "$@"
+
+case "$TODO_LOCAL" in
+    0)	die "TODO: This action can only be invoked in the context of a project that has local todo.txt file.";;
+    1)	;;
+    '')	die "TODO: This action cannot be invoked through todo.sh, only through todo-local.sh";;
+    *)	printf >&2 'ASSERT: Unhandled TODO_LOCAL: %s\n' "$TODO_LOCAL"; exit 3;;
+esac
+
+globalTodoFile="$(unset TODO_DIR TODO_FILE; todo.sh config TODO_FILE)" || exit 3
+exec "${scriptDir}/moveelsewhere" "$action" "$globalTodoFile" "$@"
