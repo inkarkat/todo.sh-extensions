@@ -1,19 +1,18 @@
 #!/usr/bin/env bash
 
+export TODOTXT_MOVEELSEWHERE_SOURCE_WHAT='global / current local todo.txt file'
+export TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT='local task list in DIR'
+export TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL=0
+export TODOTXT_MOVEELSEWHERE_DEST_ARG='DIR'
+
+readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+[ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
+
 action=$1
 shift
 
-[ "$action" = "usage" ] && {
-    echo "    $(basename $0) DIR TERM|NR [...]"
-    echo "      Moves tasks that contain TERM(s) (after confirmation) / line(s) NR from"
-    echo "      the global / current local todo.txt file to the local task list in DIR."
-    echo ""
-    exit
-}
-
-sourceTodoFile="${TODO_FILE:?}"
-[ -s "$sourceTodoFile" ] \
-    || die 'TODO: No local tasks found.'
+[ "$action" = "usage" ] \
+    && TODOTXT_MOVEELSEWHERE_ACTION_NAME=movetolocal exec "${scriptDir}/moveelsewhere" usage "$@"
 
 [ $# -gt 0 ] \
     || die 'TODO: Missing target directory.'
@@ -21,55 +20,5 @@ targetDir="${1:?}"; shift
 [ -d "$targetDir" ] \
     || die "TODO: Target directory does not exist: $targetDir"
 targetTodoFile="${targetDir%/}/todo.txt"
-[ -e "$targetTodoFile" ] \
-    || touch -- "$targetTodoFile" \
-    || exit 1
-[ ! "$sourceTodoFile" -ef "$targetTodoFile" ] \
-    || die "TODO: Source and target todo.txt files must not be the same, but are: $sourceTodoFile"
-[ $# -gt 0 ] \
-    || die 'TODO: Missing TERM(s) or NR(s).'
 
-typeset -a items=()
-while [[ "$1" =~ ^[0-9]+$ ]]
-do
-    item=$1
-    getTodo "$item" "$sourceTodoFile"
-    items+=("$item"); shift
-done
-if [ ${#items[@]} -gt 0 -a $# -gt 0 ]; then
-    die 'TODO: Cannot pass both NR and TERM(s) at the same time.'
-fi
-
-if [ ${#items[@]} -eq 0 ]; then
-    # Consider only tasks that are not yet done, but don't let custom filters hide
-    # any tasks (like future tasks).
-    exec 3>&1
-	taskList="$(
-	    post_filter_command="grep -ve '^ *[0-9]\+ [xX] '" \
-	    TODOTXT_FILTER_HIDE_TASKS=0 \
-		_list "$sourceTodoFile" "$@" \
-		    | tee /dev/fd/3
-	)"
-    exec 3>&-
-    < <(printf '%s\n' "$taskList" | "$TODO_FULL_SH" tasks) read -r -a items
-    [ ${#items[@]} -gt 0 ] || die 'TODO: No matching tasks found.'
-
-    read -rp "Move these task(s) to ${targetTodoFile}? (y/n) " answer
-    [ "$answer" = 'y' ] || exit 0
-fi
-
-sedItemMoveCommand="$(cat <<'EOF'
-{
-    w /dev/stdout
-    s/.*//
-}
-EOF
-)"
-IFS=$'\n'; moveSedScript="${items[*]/%/"$sedItemMoveCommand"}"
-sed -i.bak -e "$moveSedScript" -- "$sourceTodoFile" >> "$targetTodoFile" \
-    || die 'TODO: Error moving tasks.'
-
-# Show the tail of the target todo.txt file with the moved tasks.
-TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
-TODOTXT_FILTER_HIDE_TASKS=0 \
-    _list "$targetTodoFile" "$@" \
+exec "${scriptDir}/moveelsewhere" "$action" "$targetTodoFile" "$@"
