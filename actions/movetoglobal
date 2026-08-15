@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+
+action=$1
+shift
+
+[ "$action" = "usage" ] && {
+    echo "    $(basename $0) [TERM|NR ...]"
+    echo "      Moves all tasks / tasks that contain TERM(s) (after confirmation) /"
+    echo "      line(s) NR from the local task list to the global todo.txt file."
+    echo ""
+    exit
+}
+
+case "$TODO_LOCAL" in
+    0)	die "TODO: This action can only be invoked in the context of a project that has local todo.txt file.";;
+    1)	;;
+    '')	die "TODO: This action cannot be invoked through todo.sh, only through todo-local.sh";;
+    *)	printf >&2 'ASSERT: Unhandled TODO_LOCAL: %s\n' "$TODO_LOCAL"; exit 3;;
+esac
+
+globalTodoFile="$(unset TODO_DIR TODO_FILE; todo.sh config TODO_FILE)" || exit 3
+localTodoFile="${TODO_FILE:?}"
+[ ! "$globalTodoFile" -ef "$localTodoFile" ] \
+	|| { printf >&2 'ASSERT: Global and local todo.txt files must not be the same, but are: %s\n' "$globalTodoFile"; exit 3; }
+
+[ -s "$localTodoFile" ] \
+    || die 'TODO: No local tasks found.'
+
+typeset -a items=()
+while [[ "$1" =~ ^[0-9]+$ ]]
+do
+    item=$1
+    getTodo "$item" "$localTodoFile"
+    items+=("$item"); shift
+done
+if [ ${#items[@]} -gt 0 -a $# -gt 0 ]; then
+    die 'TODO: Cannot pass both NR and TERM(s) at the same time.'
+fi
+
+didMoveItems=
+if [ ${#items[@]} -eq 0 ]; then
+    # Consider only tasks that are not yet done, but don't let custom filters hide
+    # any tasks (like future tasks).
+    exec 3>&1
+	taskList="$(
+	    post_filter_command="grep -ve '^ *[0-9]\+ [xX] '" \
+	    TODOTXT_FILTER_HIDE_TASKS=0 \
+		_list "$localTodoFile" "$@" \
+		    | tee /dev/fd/3
+	)"
+    exec 3>&-
+    < <(printf '%s\n' "$taskList" | "$TODO_FULL_SH" tasks) read -r -a items
+    [ ${#items[@]} -gt 0 ] || die 'TODO: No matching tasks found.'
+
+    read -rp 'Move these task(s) to the global todo.txt file? (y/n) ' answer
+    [ "$answer" = 'y' ] || exit 0
+
+    # Optimization: Move the entire file en block.
+    if [ $# -eq 0 ]; then
+	cat -- "$localTodoFile" >> "$globalTodoFile" \
+	    && rm -- "$localTodoFile" \
+	    || die 'TODO: Error moving all local tasks.'
+	didMoveItems=t	# Skip the individual move (but not the message); all tasks have already been moved.
+    fi
+fi
+if [ ! "$didMoveItems" ]; then
+    sedItemMoveCommand="$(cat <<'EOF'
+{
+    w /dev/stdout
+    s/.*//
+}
+EOF
+    )"
+    IFS=$'\n'; moveSedScript="${items[*]/%/"$sedItemMoveCommand"}"
+    sed -i.bak -e "$moveSedScript" -- "$localTodoFile" >> "$globalTodoFile" \
+        || die 'TODO: Error moving local tasks.'
+fi
+
+# Show the tail of the global todo.txt file with the moved tasks.
+TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
+TODOTXT_FILTER_HIDE_TASKS=0 \
+    _list "$globalTodoFile" "$@" \
