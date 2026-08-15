@@ -61,6 +61,7 @@ if [ ${#items[@]} -eq 0 ]; then
 	taskList="$(
 	    post_filter_command="grep -ve '^ *[0-9]\+ [xX] '" \
 	    TODOTXT_FILTER_HIDE_TASKS=0 \
+	    TODOTXT_SORT_COMMAND=cat \
 		_list "$sourceTodoFile" "$@" \
 		    | tee /dev/fd/3
 	)"
