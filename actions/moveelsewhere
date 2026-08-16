@@ -3,6 +3,13 @@
 : ${TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL:=0}
 : ${TODOTXT_MOVEELSEWHERE_DEST_ARG=DEST}
 
+: ${TODOTXT_MOVEELSEWHERE_NR_MARKER='{}'}   # Replaced with NR; TODOTXT_MOVEELSEWHERE_{PRE,POST}MOVE_ACTION is then executed for each task individually.
+: ${TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER='{@}'}	# Replaced with all NR(s); TODOTXT_MOVEELSEWHERE_{PRE,POST}MOVE_ACTION is then executed once for all task(s).
+nrMarker="$TODOTXT_MOVEELSEWHERE_NR_MARKER"; unset TODOTXT_MOVEELSEWHERE_NR_MARKER
+allNrsMarker="$TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER"; unset TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER
+: ${TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION=}
+: ${TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION=}
+
 action=$1
 shift
 
@@ -21,6 +28,49 @@ shift
     echo ""
     exit
 }
+
+runInterpolatedAction()
+{
+    local quotedLauncher; printf -v quotedLauncher %q "${1:?}"; shift
+    local originalAction="${1:?}"; shift
+
+    local quotedItems interpolatedAction="$originalAction"
+    printf -v quotedItems '%q ' "$@"; quotedItems="${quotedItems% }"
+    interpolatedAction="${interpolatedAction//"$allNrsMarker"/$quotedItems}"
+    if [ "$interpolatedAction" = "$originalAction" ]; then
+	# No TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER marker; run the action for each task
+	# individually and interpolate TODOTXT_MOVEELSEWHERE_NR_MARKER or append each
+	# NR.
+	local item quotedItem status
+	for item
+	do
+	    interpolatedAction="$originalAction"
+	    printf -v quotedItem %q "$item"
+	    interpolatedAction="${interpolatedAction//"$nrMarker"/$quotedItem}"
+	    [ "$interpolatedAction" = "$originalAction" ] || quotedItem=''
+	    eval "$quotedLauncher $interpolatedAction $quotedItem" || status=$?
+	done
+	return ${status:-0}
+    else
+	# TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER has been interpolated; run the action
+	# once for all tasks.
+	eval "$quotedLauncher $interpolatedAction"
+    fi
+}
+
+runPreMoveAction()
+{
+    runInterpolatedAction "$TODO_FULL_SH" "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" "$@"
+}
+
+runPostMoveAction()
+(
+    local destinationDir="$(dirname -- "$destinationTodoFile")"
+    cd "$destinationDir" || die "TODO: Cannot change to destination directory: $destinationDir"
+    unset TODO_DIR TODO_FILE	# So that todo-local.sh doesn't pick up the source environment.
+
+    runInterpolatedAction todo-local.sh "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" "$@"
+)
 
 sourceTodoFile="${TODO_FILE:?}"
 [ -s "$sourceTodoFile" ] \
@@ -74,6 +124,10 @@ if [ ${#items[@]} -eq 0 ]; then
     read -rp "Move these task(s) to ${destinationTodoFile}? (y/n) " answer
     [ "$answer" = 'y' ] || exit 0
 
+    [ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
+	|| runPreMoveAction "${items[@]}" \
+	|| die 'TODO: Error running pre-move action.'
+
     # Optimization: Move the entire file en block.
     if [ $# -eq 0 ]; then
 	cat -- "$sourceTodoFile" >> "$destinationTodoFile" \
@@ -84,19 +138,36 @@ if [ ${#items[@]} -eq 0 ]; then
 fi
 
 if [ ! "$didMoveItems" ]; then
-    sedItemMoveCommand="$(cat <<'EOF'
+    [ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
+	|| runPreMoveAction "${items[@]}" \
+	|| die 'TODO: Error running pre-move action.'
+
+    sedItemMoveAction="$(cat <<'EOF'
 {
     w /dev/stdout
     s/.*//
 }
 EOF
     )"
-    IFS=$'\n'; moveSedScript="${items[*]/%/"$sedItemMoveCommand"}"
+    IFS=$'\n'; moveSedScript="${items[*]/%/"$sedItemMoveAction"}"
     sed -i.bak -e "$moveSedScript" -- "$sourceTodoFile" >> "$destinationTodoFile" \
 	|| die 'TODO: Error moving tasks.'
+fi
+
+unset status
+if [ -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" ]; then
+    < <(
+	TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
+	TODOTXT_FILTER_HIDE_TASKS=0 \
+	    _list "$destinationTodoFile" \
+		| "$TODO_FULL_SH" tasks
+    ) read -r -a postMoveItems
+    runPostMoveAction "${postMoveItems[@]}" \
+	|| { echo >&2 'TODO: Error running post-move action.'; status=1; }	# Don't die, we still want to show the moved tasks (even though they didn't get (fully) processed by the post-move action).
 fi
 
 # Show the tail of the destination todo.txt file with the moved tasks.
 TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
 TODOTXT_FILTER_HIDE_TASKS=0 \
     _list "$destinationTodoFile"
+exit $status
