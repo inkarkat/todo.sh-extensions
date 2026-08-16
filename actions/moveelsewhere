@@ -97,4 +97,4 @@ fi
 # Show the tail of the destination todo.txt file with the moved tasks.
 TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
 TODOTXT_FILTER_HIDE_TASKS=0 \
-    _list "$destinationTodoFile" "$@" \
+    _list "$destinationTodoFile"
