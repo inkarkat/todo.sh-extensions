@@ -43,11 +43,13 @@ fi
     || die 'TODO: Missing TERM(s) or NR(s).'
 
 typeset -a items=()
-while [[ "$1" =~ ^[0-9]+$ ]]
+while [[ "$1" =~ ^[,0-9]+$ ]]
 do
-    item=$1
-    getTodo "$item" "$sourceTodoFile"
-    items+=("$item"); shift
+    for item in ${1//,/ }
+    do
+	getTodo "$item" "$sourceTodoFile"
+	items+=("$item"); shift
+    done
 done
 if [ ${#items[@]} -gt 0 -a $# -gt 0 ]; then
     die 'TODO: Cannot pass both NR and TERM(s) at the same time.'
