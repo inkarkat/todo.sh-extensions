@@ -3,6 +3,19 @@
 : ${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND='zd --selection'}
 : ${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG="QUERY|''"}
 
+# Duplicated to ./movetoglobal
+# Shell command that is executed inside each local todo.txt file's directory
+# when moving tasks. Each output line is prepended / appended to the task text
+# after moving it to the global todo.txt file, providing explicit information
+# (like a +project) that previously was implicitly stored in the local todo.txt
+# file location.
+# Likewise, when moving tasks from the global todo.txt file to a local todo.txt
+# file, each output line is treated as literal whitespace-delimited text that
+# is removed from the task text after moving it to the local todo.txt file,
+# dropping the explicit information (like a +project) that is now implicitly
+# stored in the local todo.txt file location.
+: ${TODOTXT_LOCAL_ORIGIN_COMMAND='todo-local-project --to-origin'}
+
 export TODOTXT_MOVEELSEWHERE_SOURCE_WHAT='global / current local todo.txt file'
 export TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT='local task list in DIR'
 export TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL=0
@@ -30,5 +43,24 @@ fi
 [ -d "$targetDir" ] \
     || die "TODO: Target directory does not exist: $targetDir"
 targetTodoFile="${targetDir%/}/todo.txt"
+
+if [ -n "$TODOTXT_LOCAL_ORIGIN_COMMAND" ]; then
+    # Remove the local origin(s) from the task text after moving it to its local
+    # todo.txt file.
+    printf -v quotedTodoDir %q "${targetDir:?}"
+    quotedSubstArgs=
+    while IFS=$'\n' read -r origin || { exitStatus="$origin"; break; }	# Exit status from the process substitution is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
+    do
+	literalOrigin="$(toLiteralRegexp "$origin")"
+	printf -v quotedSubstArgs "%s' '%q'\\(\$\| \\)' ' '" "${quotedSubstArgs}${quotedSubstArgs:+ }" "$literalOrigin"
+    done < <(eval "$TODOTXT_LOCAL_ORIGIN_COMMAND $quotedTodoDir"; printf %d "$?")
+
+    if [ $exitStatus -eq 0 -a -n "$quotedSubstArgs" ]; then
+	# Use subst instead of del|rm because it handles multiple NRs and thereby
+	# doesn't complain if some tasks don't match (and also handles multiple
+	# TERM(s)). Ignore even when no removals were made.
+	export TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION="subst {@} $quotedSubstArgs || :"
+    fi
+fi
 
 exec "${scriptDir}/moveelsewhere" "$action" "$targetTodoFile" "$@"
