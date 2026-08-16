@@ -1,0 +1,42 @@
+#!/bin/bash
+
+printUsage()
+{
+    cat <<HELPTEXT
+Synthesize an origin +project for the passed local todo.txt
+LOCAL-TODO-DIR / a project for the current working directory. Fails with 1 if
+the origin +project cannot be determined, and with 5 if not in a project
+directory.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--to-origin [LOCAL-TODO-DIR]'
+}
+
+action='printUsage'
+case "$1" in
+    --help|-h|-\?)      shift; printUsage "$0"; exit 0;;
+    --to-origin)        shift; action='toOrigin';;
+    *)                  printUsage "$0" >&2; exit 2;;
+esac
+
+toOrigin()
+{
+    local localDirspec
+    case $# in
+	0)  localDirspec="$(todo-local.sh location)" || exit 5;;
+	1)  localDirspec="${1:?}"; shift;;
+	*)  printUsage "$0" >&2; exit 2;;
+    esac
+
+    if [ "$localDirspec" -ef ~/swdev/test ]; then
+	echo '+test'
+    elif [ "$localDirspec" -ef ~/swdev/test2 ]; then
+	echo '+test2'
+    elif [ "$localDirspec" -ef ~/swdev/test3 ]; then
+	echo '+test3'
+    else
+	return 1
+    fi
+}
+
+$action "$@"
