@@ -29,6 +29,34 @@ shift
     exit
 }
 
+sourceTodoFile="${TODO_FILE:?}"
+[ -s "$sourceTodoFile" ] \
+    || die 'TODO: No tasks found.'
+
+listSourceTasks()
+{
+    # Consider only tasks that are not yet done, but don't let custom filters hide
+    # any tasks (like future tasks).
+    post_filter_command="grep -ve '^ *[0-9]\+ [xX] '" \
+    TODOTXT_FILTER_HIDE_TASKS=0 \
+    TODOTXT_SORT_COMMAND=cat \
+	_list "$sourceTodoFile" "$@"
+}
+
+ensureDestinationTodoFile()
+{
+    if [ ! -e "$destinationTodoFile" ]; then
+	destinationDir="$(dirname -- "$destinationTodoFile")"
+	[ -d "$destinationDir" ] \
+	    || die "TODO: The ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-destination}'s directory does not exist: $destinationDir"
+
+	touch -- "$destinationTodoFile" \
+	    || exit 1
+    fi
+    [ ! "$sourceTodoFile" -ef "$destinationTodoFile" ] \
+	|| die "TODO: The ${TODOTXT_MOVEELSEWHERE_SOURCE_WHAT:-source} and the ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-destination} must not be the same, but are: $sourceTodoFile"
+}
+
 runInterpolatedAction()
 {
     local quotedLauncher; printf -v quotedLauncher %q "${1:?}"; shift
@@ -72,23 +100,78 @@ runPostMoveAction()
     runInterpolatedAction todo-local.sh "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" "$@"
 )
 
-sourceTodoFile="${TODO_FILE:?}"
-[ -s "$sourceTodoFile" ] \
-    || die 'TODO: No tasks found.'
+move()
+{
+    local didMoveItems=
+    if [ ${#items[@]} -eq 0 ]; then
+	# List tasks, optionally filtered by TERM(s).
+	exec 3>&1
+	    local taskList="$(listSourceTasks "$@" | tee /dev/fd/3)"
+	exec 3>&-
+	< <(printf '%s\n' "$taskList" | "$TODO_FULL_SH" tasks) read -r -a items
+	[ ${#items[@]} -gt 0 ] || die 'TODO: No matching tasks found.'
 
+	local answer; read -rp "Move these task(s) to ${destinationTodoFile}? (y/n) " answer
+	[ "$answer" = 'y' ] || exit 0
+
+	[ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
+	    || runPreMoveAction "${items[@]}" \
+	    || die 'TODO: Error running pre-move action.'
+
+	# Optimization: Move the entire file en block.
+	if [ $# -eq 0 ]; then
+	    cat -- "$sourceTodoFile" >> "$destinationTodoFile" \
+		&& rm -- "$sourceTodoFile" \
+		|| die 'TODO: Error moving all tasks.'
+	    didMoveItems=t	# Skip the individual move (but not the message); all tasks have already been moved.
+	fi
+    fi
+
+    if [ ! "$didMoveItems" ]; then
+	[ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
+	    || runPreMoveAction "${items[@]}" \
+	    || die 'TODO: Error running pre-move action.'
+
+	# Move passed / resolved NR(s).
+	sedItemMoveAction="$(cat <<'EOF'
+{
+    w /dev/stdout
+    s/.*//
+}
+EOF
+	)"
+	local IFS=$'\n'; local moveSedScript="${items[*]/%/"$sedItemMoveAction"}"
+	sed -i.bak -e "$moveSedScript" -- "$sourceTodoFile" >> "$destinationTodoFile" \
+	    || die 'TODO: Error moving tasks.'
+    fi
+
+    unset status
+    if [ -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" ]; then
+	typeset -a postMoveItems=()
+	read -r -a postMoveItems < <(
+	    TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
+	    TODOTXT_FILTER_HIDE_TASKS=0 \
+		_list "$destinationTodoFile" \
+		    | "$TODO_FULL_SH" tasks
+	)
+	runPostMoveAction "${postMoveItems[@]}" \
+	    || { echo >&2 'TODO: Error running post-move action.'; status=1; }	# Don't die, we still want to show the moved tasks (even though they didn't get (fully) processed by the post-move action).
+    fi
+
+    # Show the tail of the destination todo.txt file with the moved tasks.
+    TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
+    TODOTXT_FILTER_HIDE_TASKS=0 \
+	_list "$destinationTodoFile"
+    return $status
+}
+
+action=move
+# DEST is directly passed.
 [ $# -gt 0 ] \
     || die "TODO: Missing ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-${TODOTXT_MOVEELSEWHERE_DEST_ARG}${TODOTXT_MOVEELSEWHERE_DEST_ARG:+ arg}}."
 destinationTodoFile="${1:?}"; shift
-if [ ! -e "$destinationTodoFile" ]; then
-    destinationDir="$(dirname -- "$destinationTodoFile")"
-    [ -d "$destinationDir" ] \
-	|| die "TODO: The ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-destination}'s directory does not exist: $destinationDir"
+ensureDestinationTodoFile
 
-    touch -- "$destinationTodoFile" \
-	|| exit 1
-fi
-[ ! "$sourceTodoFile" -ef "$destinationTodoFile" ] \
-    || die "TODO: The ${TODOTXT_MOVEELSEWHERE_SOURCE_WHAT:-source} and the ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-destination} must not be the same, but are: $sourceTodoFile"
 [ $# -gt 0 -o $TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL -ne 0 ] \
     || die 'TODO: Missing TERM(s) or NR(s).'
 
@@ -105,69 +188,4 @@ if [ ${#items[@]} -gt 0 -a $# -gt 0 ]; then
     die 'TODO: Cannot pass both NR and TERM(s) at the same time.'
 fi
 
-didMoveItems=
-if [ ${#items[@]} -eq 0 ]; then
-    # Consider only tasks that are not yet done, but don't let custom filters hide
-    # any tasks (like future tasks).
-    exec 3>&1
-	taskList="$(
-	    post_filter_command="grep -ve '^ *[0-9]\+ [xX] '" \
-	    TODOTXT_FILTER_HIDE_TASKS=0 \
-	    TODOTXT_SORT_COMMAND=cat \
-		_list "$sourceTodoFile" "$@" \
-		    | tee /dev/fd/3
-	)"
-    exec 3>&-
-    < <(printf '%s\n' "$taskList" | "$TODO_FULL_SH" tasks) read -r -a items
-    [ ${#items[@]} -gt 0 ] || die 'TODO: No matching tasks found.'
-
-    read -rp "Move these task(s) to ${destinationTodoFile}? (y/n) " answer
-    [ "$answer" = 'y' ] || exit 0
-
-    [ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
-	|| runPreMoveAction "${items[@]}" \
-	|| die 'TODO: Error running pre-move action.'
-
-    # Optimization: Move the entire file en block.
-    if [ $# -eq 0 ]; then
-	cat -- "$sourceTodoFile" >> "$destinationTodoFile" \
-	    && rm -- "$sourceTodoFile" \
-	    || die 'TODO: Error moving all tasks.'
-	didMoveItems=t	# Skip the individual move (but not the message); all tasks have already been moved.
-    fi
-fi
-
-if [ ! "$didMoveItems" ]; then
-    [ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
-	|| runPreMoveAction "${items[@]}" \
-	|| die 'TODO: Error running pre-move action.'
-
-    sedItemMoveAction="$(cat <<'EOF'
-{
-    w /dev/stdout
-    s/.*//
-}
-EOF
-    )"
-    IFS=$'\n'; moveSedScript="${items[*]/%/"$sedItemMoveAction"}"
-    sed -i.bak -e "$moveSedScript" -- "$sourceTodoFile" >> "$destinationTodoFile" \
-	|| die 'TODO: Error moving tasks.'
-fi
-
-unset status
-if [ -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" ]; then
-    < <(
-	TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
-	TODOTXT_FILTER_HIDE_TASKS=0 \
-	    _list "$destinationTodoFile" \
-		| "$TODO_FULL_SH" tasks
-    ) read -r -a postMoveItems
-    runPostMoveAction "${postMoveItems[@]}" \
-	|| { echo >&2 'TODO: Error running post-move action.'; status=1; }	# Don't die, we still want to show the moved tasks (even though they didn't get (fully) processed by the post-move action).
-fi
-
-# Show the tail of the destination todo.txt file with the moved tasks.
-TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
-TODOTXT_FILTER_HIDE_TASKS=0 \
-    _list "$destinationTodoFile"
-exit $status
+$action "$@"
