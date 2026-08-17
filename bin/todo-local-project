@@ -1,9 +1,10 @@
 #!/bin/bash
+shopt -qs extglob
 
 printUsage()
 {
     cat <<HELPTEXT
-Synthesize an origin +project for the passed local todo.txt
+Synthesize an origin +project [@work] for the passed local todo.txt
 LOCAL-TODO-DIR / a project for the current working directory. Fails with 1 if
 the origin +project cannot be determined, and with 5 if not in a project
 directory.
@@ -19,6 +20,11 @@ case "$1" in
     *)                  printUsage "$0" >&2; exit 2;;
 esac
 
+printOrigin()
+{
+    printf '%s\n' "$@"
+}
+
 toOrigin()
 {
     local localDirspec
@@ -28,15 +34,39 @@ toOrigin()
 	*)  printUsage "$0" >&2; exit 2;;
     esac
 
-    if [ "$localDirspec" -ef ~/swdev/test ]; then
-	echo '+test'
-    elif [ "$localDirspec" -ef ~/swdev/test2 ]; then
-	echo '+test2'
-    elif [ "$localDirspec" -ef ~/swdev/test3 ]; then
-	echo '+test3'
-    else
-	return 1
-    fi
+    case "${localDirspec/\/Unixhome\//\/}" in
+	~/@(autosource|profile))
+	    printOrigin "+rc-${localDirspec##*/}";;
+	~/lib/ingo/todo.txt-cli)
+	    printOrigin "+todo.txt";;
+	~/lib/ingo/todo.txt-cli-ex)
+	    printOrigin "+todo.ex";;
+	~/@(bin|lib)/@(forks|ingo)/+([^/]))
+	    printOrigin "+sw-${localDirspec##*/}";;
+	~/@(bin|lib)/originals/+([^/]))
+	    printOrigin "+swdev-${localDirspec##*/}";;
+	~/@(bin|lib)/setups/+([^/]))
+	    printOrigin "+setup-${localDirspec##*/}";;
+	~/@(bin|lib)/xt/+([^/]))
+	    printOrigin "+tools-${localDirspec##*/}";;
+	~/@(bin|lib)/*(z)ingo-customizations/+([^/]))
+	    printOrigin "+customizations-${localDirspec##*/}";;
+	~/swdev/test*([^/]))
+	    printOrigin "+${localDirspec##*/}";;
+	~/@(bin|lib)/work-+([^/])/+([^/]))
+	    context="${localDirspec%/*}"; context="${context##*/}"; context="${context#*-}"
+	    printOrigin "+${localDirspec##*/}" "@${context,,}";;
+	~/@(bin|lib)/*(z)work-+([^/])-xt/+([^/]))
+	    context="${localDirspec%/*}"; context="${context##*/}"; context="${context#*-}"; context="${context%-xt}"
+	    printOrigin "+${localDirspec##*/}" "@${context,,}";;
+	~/.vim/pack/@(forks|ingo)/+([^/])/+([^/]))
+	    name="${localDirspec##*/}"; name="${name#vim-}"; name="${name%.vim}"
+	    printOrigin "+vimrc-${name}";;
+	~/.vim/pack/originals/+([^/])/+([^/]))
+	    name="${localDirspec##*/}"; name="${name#vim-}"; name="${name%[.-]vim}"
+	    printOrigin "+vimdev-${name}";;
+	*)  return 1;;
+    esac
 }
 
 $action "$@"
