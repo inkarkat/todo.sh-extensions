@@ -20,6 +20,12 @@ HELPTEXT
     printf 'Usage: todo.sh -p list ... | %q %s\n' "$(basename "$1")" '--to-dir'
     echo
     cat <<HELPTEXT
+Discover and record origin +project [@work] from source directories.
+HELPTEXT
+    echo
+    printf 'Usage: %q %s\n' "$(basename "$1")" '--discover'
+    echo
+    cat <<HELPTEXT
 List all recorded origin +project [@work].
 HELPTEXT
     echo
@@ -46,6 +52,7 @@ case "$1" in
     --help|-h|-\?)      shift; printUsage "$0"; exit 0;;
     --to-origin)        shift; action=toOrigin; pager=();;
     --to-dir)           shift; action=toDir; pager=();;
+    --discover)		shift; action=discover; pager=();;
     --list|-l)		shift; action=list;;
     --show-records|-s)	shift; action=showRecords;;
     *)                  printUsage "$0" >&2; exit 2;;
@@ -107,6 +114,34 @@ toOrigin()
 	    printOrigin "+vimdev-${name}";;
 	*)  return 1;;
     esac
+}
+
+discover()
+{
+    # Work repositories define git-WORK commands that iterate over all work-related
+    # Git repositories (typically in ~/WORK/.
+    # Any work-related personal projects / customizations inside Unixhome are
+    # covered by Unixhome-ingo instead.
+    typeset -a workSources=()
+    for workName in "${!WORK_@}"
+    do
+	workName="${workName#WORK_}"
+	workName="${workName,,}"
+	workSources+=("git-$workName")
+    done
+
+    for sourceIterator in \
+	{Unixhome,vimrc}-{ingo,originals} \
+	swdev \
+	"${workSources[@]}"
+    do
+	if type -t -- "$sourceIterator" >/dev/null; then
+	    "$sourceIterator" --quiet --no-pager --no-header -c 'todo-local-project --to-origin'
+	else
+	    printf >&2 'Warning: No source iterator "%s" found; skipping.\n' "$sourceIterator"
+	fi
+    done \
+	| sampleLines --initial-delay 2 --inline-or-none --clear --count 'project'
 }
 
 list()
