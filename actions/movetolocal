@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
+set -o pipefail
+shopt -qs extglob
 
+: ${TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND='todo-local-project --to-dir'}
 : ${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND='zd --selection'}
 : ${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG="QUERY|''"}
 
@@ -19,7 +22,11 @@
 export TODOTXT_MOVEELSEWHERE_SOURCE_WHAT='global / current local todo.txt file'
 export TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT='local task list in DIR'
 export TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL=0
-export TODOTXT_MOVEELSEWHERE_DEST_ARG="DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}"
+if [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" ]; then
+    export TODOTXT_MOVEELSEWHERE_DEST_ARG="[DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|-q|--query $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}]"
+else
+    export TODOTXT_MOVEELSEWHERE_DEST_ARG="DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}"
+fi
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
 [ -d "$scriptDir" ] || { echo >&2 'ERROR: Cannot determine script directory!'; exit 3; }
@@ -27,18 +34,48 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 action=$1
 shift
 
+targetDir=
+
+extractTargetDir()
+{
+    targetDir="$(
+	TODOTXT_MOVEELSEWHERE_LIST_SOURCE_TASKS_ONLY=t "${scriptDir}/moveelsewhere" "$action" "$@" \
+	    | eval "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND"
+	exit ${PIPESTATUS[0]}	# Ignore the exit status of the extractor; what counts is [the validity of] its output.
+    )" || exit $?   # A failure comes from moveelsewhere, and in that case an error message was already given.
+
+    # Check if the extractor actually delivered, and complain if not.
+    if [ ! -d "$targetDir" ]; then
+	mandatoryDestArg="${TODOTXT_MOVEELSEWHERE_DEST_ARG#\[}"; mandatoryDestArg="${mandatoryDestArg%\]}"
+	die "TODO: Could not extract the target directory from the to-be-moved tasks; you need to pass ${mandatoryDestArg}"
+    fi
+}
+
+lookupTargetDir()
+{
+    local query="${1?}"; shift
+    # Try to resolve the target directory through the lookup command.
+    targetDir="$(eval "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" "$query")"
+    [ -d "$targetDir" ] \
+	|| die "TODO: Target directory does not exist, and could not look it up: $query"
+}
+
 [ "$action" = "usage" ] \
     && TODOTXT_MOVEELSEWHERE_ACTION_NAME=movetolocal exec "${scriptDir}/moveelsewhere" usage "$@"
 
-[ $# -gt 0 ] \
-    || die 'TODO: Missing target directory.'
-targetDir="${1?}"; shift
-if [ ! -d "$targetDir" -a -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ]; then
-    # Try to resolve the target directory through the lookup command.
-    lookedUptargetDir="$(eval "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" "$targetDir")"
-    [ -d "$lookedUptargetDir" ] \
-	&& targetDir="$lookedUptargetDir" \
-	|| die "TODO: Target directory does not exist, and could not look it up: $targetDir"
+if [ -d "$1" ]; then
+    targetDir="${1?}"; shift
+elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" -a -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ] && [[ "$1" = @(--query|-q) ]]; then
+    shift
+    [ $# -gt 0 ] || die "TODO: Missing $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG"
+    lookupTargetDir "${1?}"; shift
+elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" ]; then
+    extractTargetDir "$@"
+elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ]; then
+    [ $# -gt 0 ] || die "TODO: Missing $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG"
+    lookupTargetDir "${1?}"; shift
+elif [ $# -eq 0 ]; then
+    die 'TODO: Missing target directory.'
 fi
 [ -d "$targetDir" ] \
     || die "TODO: Target directory does not exist: $targetDir"
