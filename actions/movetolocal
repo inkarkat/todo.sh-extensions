@@ -27,18 +27,26 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 action=$1
 shift
 
+targetDir=
+lookupTargetDir()
+{
+    local query="${1?}"; shift
+    # Try to resolve the target directory through the lookup command.
+    targetDir="$(eval "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" "$query")"
+    [ -d "$targetDir" ] \
+	|| die "TODO: Target directory does not exist, and could not look it up: $query"
+}
+
 [ "$action" = "usage" ] \
     && TODOTXT_MOVEELSEWHERE_ACTION_NAME=movetolocal exec "${scriptDir}/moveelsewhere" usage "$@"
 
-[ $# -gt 0 ] \
-    || die 'TODO: Missing target directory.'
-targetDir="${1?}"; shift
-if [ ! -d "$targetDir" -a -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ]; then
-    # Try to resolve the target directory through the lookup command.
-    lookedUptargetDir="$(eval "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" "$targetDir")"
-    [ -d "$lookedUptargetDir" ] \
-	&& targetDir="$lookedUptargetDir" \
-	|| die "TODO: Target directory does not exist, and could not look it up: $targetDir"
+if [ -d "$1" ]; then
+    targetDir="${1?}"; shift
+elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ]; then
+    [ $# -gt 0 ] || die "TODO: Missing $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG"
+    lookupTargetDir "${1?}"; shift
+elif [ $# -eq 0 ]; then
+    die 'TODO: Missing target directory.'
 fi
 [ -d "$targetDir" ] \
     || die "TODO: Target directory does not exist: $targetDir"
