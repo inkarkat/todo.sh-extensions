@@ -43,6 +43,23 @@ listSourceTasks()
 	_list "$sourceTodoFile" "$@"
 }
 
+listSourceTasksAsAPreview()
+{
+    if [ ${#items[@]} -eq 0 ]; then
+	if [ $# -eq 0 ]; then
+	    # Optimization: Print the entire file en block.
+	    cat -- "$sourceTodoFile"
+	else
+	    # Filter by TERM(s).
+	    TODOTXT_PLAIN=1 TODOTXT_VERBOSE=0 listSourceTasks "$@"
+	fi
+    else
+	# Select passed NR(s).
+	local IFS=$'\n'; local listSedScript="${items[*]/%/p}"
+	sed -n -e "$listSedScript" -- "$sourceTodoFile"
+    fi
+}
+
 ensureDestinationTodoFile()
 {
     if [ ! -e "$destinationTodoFile" ]; then
@@ -166,11 +183,15 @@ EOF
 }
 
 action=move
-# DEST is directly passed.
-[ $# -gt 0 ] \
-    || die "TODO: Missing ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-${TODOTXT_MOVEELSEWHERE_DEST_ARG}${TODOTXT_MOVEELSEWHERE_DEST_ARG:+ arg}}."
-destinationTodoFile="${1:?}"; shift
-ensureDestinationTodoFile
+if [ -n "$TODOTXT_MOVEELSEWHERE_LIST_SOURCE_TASKS_ONLY" ]; then
+    action=listSourceTasksAsAPreview
+else
+    # DEST is directly passed.
+    [ $# -gt 0 ] \
+	|| die "TODO: Missing ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-${TODOTXT_MOVEELSEWHERE_DEST_ARG}${TODOTXT_MOVEELSEWHERE_DEST_ARG:+ arg}}."
+    destinationTodoFile="${1:?}"; shift
+    ensureDestinationTodoFile
+fi
 
 [ $# -gt 0 -o $TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL -ne 0 ] \
     || die 'TODO: Missing TERM(s) or NR(s).'
