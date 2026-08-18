@@ -169,6 +169,19 @@ EOF
 	    || die 'TODO: Error moving tasks.'
     fi
 
+    # Defragment blank lines if auto-archiving is enabled.
+    # (Don't archive, mostly because it might be unexpected and the messages are
+    # distracting.)
+    if [ "$TODOTXT_AUTO_ARCHIVE" = 1 ]; then
+	if [ -n "$(listCustomActions defragment)" ]; then
+	    # We have a customized defragment script that not only removes the empty
+	    # lines, but also adapts cross-task references; use it.
+	    "$TODO_FULL_SH" defragment
+	else
+	    sed -i.bak -e '/./!d' "$sourceTodoFile"
+	fi
+    fi
+
     unset status
     if [ -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" -o -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION2" ]; then
 	typeset -a postMoveItems=()
