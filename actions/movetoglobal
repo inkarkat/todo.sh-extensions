@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 
+# Duplicated to ./movetolocal
+# Shell command that is executed inside each local todo.txt file's directory
+# when moving tasks. Each output line is prepended / appended to the task text
+# after moving it to the global todo.txt file, providing explicit information
+# (like a +project) that previously was implicitly stored in the local todo.txt
+# file location.
+# Likewise, when moving tasks from the global todo.txt file to a local todo.txt
+# file, each output line is treated as literal whitespace-delimited text that
+# is removed from the task text after moving it to the local todo.txt file,
+# dropping the explicit information (like a +project) that is now implicitly
+# stored in the local todo.txt file location.
+: ${TODOTXT_LOCAL_ORIGIN_COMMAND='todo-local-project --to-origin'}
+: ${TODOTXT_LOCAL_ORIGIN_INSERTION_ACTION:='prepend'}
+
 unset TODOTXT_MOVEELSEWHERE_SOURCE_WHAT
 export TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT='global todo.txt file'
 export TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL=1
@@ -20,6 +34,19 @@ case "$TODO_LOCAL" in
     '')	die "TODO: This action cannot be invoked through todo.sh, only through todo-local.sh";;
     *)	printf >&2 'ASSERT: Unhandled TODO_LOCAL: %s\n' "$TODO_LOCAL"; exit 3;;
 esac
+
+if [ -n "$TODOTXT_LOCAL_ORIGIN_COMMAND" ]; then
+    printf -v quotedTodoDir %q "${TODO_DIR:?}"
+    if origin="$(eval "$TODOTXT_LOCAL_ORIGIN_COMMAND $quotedTodoDir")" \
+	&& [ -n "$origin" ]
+    then
+	# Insert the local origin(s) into the task text after moving it to the global
+	# todo.txt file.
+	printf -v TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION '%s {} %q' "$TODOTXT_LOCAL_ORIGIN_INSERTION_ACTION" "${origin//$'\n'/ }"
+	export TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION
+	:
+    fi
+fi
 
 globalTodoFile="$(unset TODO_DIR TODO_FILE; todo.sh config TODO_FILE)" || exit 3
 exec "${scriptDir}/moveelsewhere" "$action" "$globalTodoFile" "$@"
