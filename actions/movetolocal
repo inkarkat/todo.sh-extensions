@@ -46,30 +46,30 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 action=$1
 shift
 
-targetDir=
+destinationDir=
 
-extractTargetDir()
+extractDestinationDir()
 {
-    targetDir="$(
+    destinationDir="$(.
 	TODOTXT_MOVEELSEWHERE_LIST_SOURCE_TASKS_ONLY=t "${scriptDir}/moveelsewhere" "$action" "$@" \
 	    | eval "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND"
 	exit ${PIPESTATUS[0]}	# Ignore the exit status of the extractor; what counts is [the validity of] its output.
     )" || exit $?   # A failure comes from moveelsewhere, and in that case an error message was already given.
 
     # Check if the extractor actually delivered, and complain if not.
-    if [ ! -d "$targetDir" ]; then
+    if [ ! -d "$destinationDir" ]; then
 	mandatoryDestArg="${TODOTXT_MOVEELSEWHERE_DEST_ARG#\[}"; mandatoryDestArg="${mandatoryDestArg%\]}"
-	die "TODO: Could not extract the target directory from the to-be-moved tasks; you need to pass ${mandatoryDestArg}"
+	die "TODO: Could not extract the destination directory from the to-be-moved tasks; you need to pass ${mandatoryDestArg}"
     fi
 }
 
-lookupTargetDir()
+lookupDestinationDir()
 {
     local query="${1?}"; shift
-    # Try to resolve the target directory through the lookup command.
-    targetDir="$(eval "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" "$query")"
-    [ -d "$targetDir" ] \
-	|| die "TODO: Target directory does not exist, and could not look it up: $query"
+    # Try to resolve the destination directory through the lookup command.
+    destinationDir="$(eval "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" "$query")"
+    [ -d "$destinationDir" ] \
+	|| die "TODO: Destination directory does not exist, and could not look it up: $query"
 }
 
 [ "$action" = "usage" ] \
@@ -83,27 +83,27 @@ case "$1" in
 esac
 
 if [ -d "$1" ]; then
-    targetDir="${1?}"; shift
+    destinationDir="${1?}"; shift
 elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" -a -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ] && [[ "$1" = @(--query|-q) ]]; then
     shift
     [ $# -gt 0 ] || die "TODO: Missing $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG"
-    lookupTargetDir "${1?}"; shift
+    lookupDestinationDir "${1?}"; shift
 elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" ]; then
-    extractTargetDir "$@"
+    extractDestinationDir "$@"
 elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ]; then
     [ $# -gt 0 ] || die "TODO: Missing $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG"
-    lookupTargetDir "${1?}"; shift
+    lookupDestinationDir "${1?}"; shift
 elif [ $# -eq 0 ]; then
-    die 'TODO: Missing target directory.'
+    die 'TODO: Missing destination directory.'
 fi
-[ -d "$targetDir" ] \
-    || die "TODO: Target directory does not exist: $targetDir"
-targetTodoFile="${targetDir%/}/todo.txt"
+[ -d "$destinationDir" ] \
+    || die "TODO: Destination directory does not exist: $destinationDir"
+destinationTodoFile="${destinationDir%/}/todo.txt"
 
 if [ -n "$TODOTXT_LOCAL_ORIGIN_COMMAND" ]; then
     # Remove the local origin(s) from the task text after moving it to its local
     # todo.txt file.
-    printf -v quotedTodoDir %q "${targetDir:?}"
+    printf -v quotedTodoDir %q "${destinationDir:?}"
     quotedSubstArgs=
     while IFS=$'\n' read -r origin || { exitStatus="$origin"; break; }	# Exit status from the process substitution is lost; return the actual exit status via an incomplete (i.e. missing the newline) last line.
     do
@@ -138,4 +138,4 @@ if [ -n "$TODOTXT_LOCAL_ORIGIN_COMMAND" ]; then
     fi
 fi
 
-exec "${scriptDir}/moveelsewhere" "$action" "$targetTodoFile" "$@"
+exec "${scriptDir}/moveelsewhere" "$action" "$destinationTodoFile" "$@"
