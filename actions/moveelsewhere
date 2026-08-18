@@ -8,7 +8,9 @@
 nrMarker="$TODOTXT_MOVEELSEWHERE_NR_MARKER"; unset TODOTXT_MOVEELSEWHERE_NR_MARKER
 allNrsMarker="$TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER"; unset TODOTXT_MOVEELSEWHERE_ALL_NRS_MARKER
 : ${TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION=}
+: ${TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION2=}
 : ${TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION=}
+: ${TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION2=}
 
 action=$1
 shift
@@ -25,6 +27,7 @@ shift
 	    echo "      line(s) NR from the ${TODOTXT_MOVEELSEWHERE_SOURCE_WHAT:-current todo.txt file} to the ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-${destArg}${destArg:+ }task list}."
 	    ;;
     esac
+    [ -z "$TODOTXT_MOVEELSEWHERE_ADDITIONAL_USAGE" ] || echo "$TODOTXT_MOVEELSEWHERE_ADDITIONAL_USAGE"
     echo ""
     exit
 }
@@ -103,18 +106,24 @@ runInterpolatedAction()
     fi
 }
 
-runPreMoveAction()
+runPreMoveActions()
 {
-    runInterpolatedAction "$TODO_FULL_SH" "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" "$@"
+    local action; for action in "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION2"
+    do
+	[ -z "$action" ] || runInterpolatedAction "$TODO_FULL_SH" "$action" "$@" || return $?
+    done
 }
 
-runPostMoveAction()
+runPostMoveActions()
 (
     local destinationDir="$(dirname -- "$destinationTodoFile")"
     cd "$destinationDir" || die "TODO: Cannot change to destination directory: $destinationDir"
     unset TODO_DIR TODO_FILE	# So that todo-local.sh doesn't pick up the source environment.
 
-    runInterpolatedAction todo-local.sh "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" "$@"
+    local action; for action in "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION2"
+    do
+	[ -z "$action" ] || runInterpolatedAction todo-local.sh "$action" "$@" || return $?
+    done
 )
 
 move()
@@ -131,8 +140,7 @@ move()
 	local answer; read -rp "Move these task(s) to ${destinationTodoFile}? (y/n) " answer
 	[ "$answer" = 'y' ] || exit 0
 
-	[ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
-	    || runPreMoveAction "${items[@]}" \
+	runPreMoveActions "${items[@]}" \
 	    || die 'TODO: Error running pre-move action.'
 
 	# Optimization: Move the entire file en block.
@@ -145,8 +153,7 @@ move()
     fi
 
     if [ ! "$didMoveItems" ]; then
-	[ -z "$TODOTXT_MOVEELSEWHERE_PREMOVE_ACTION" ] \
-	    || runPreMoveAction "${items[@]}" \
+	runPreMoveActions "${items[@]}" \
 	    || die 'TODO: Error running pre-move action.'
 
 	# Move passed / resolved NR(s).
@@ -163,7 +170,7 @@ EOF
     fi
 
     unset status
-    if [ -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" ]; then
+    if [ -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION" -o -n "$TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION2" ]; then
 	typeset -a postMoveItems=()
 	read -r -a postMoveItems < <(
 	    TODOTXT_SORT_COMMAND="tail -n ${#items[@]}" \
@@ -171,7 +178,7 @@ EOF
 		_list "$destinationTodoFile" \
 		    | "$TODO_FULL_SH" tasks
 	)
-	runPostMoveAction "${postMoveItems[@]}" \
+	runPostMoveActions "${postMoveItems[@]}" \
 	    || { echo >&2 'TODO: Error running post-move action.'; status=1; }	# Don't die, we still want to show the moved tasks (even though they didn't get (fully) processed by the post-move action).
     fi
 

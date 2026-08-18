@@ -12,7 +12,6 @@
 # dropping the explicit information (like a +project) that is now implicitly
 # stored in the local todo.txt file location.
 : ${TODOTXT_LOCAL_ORIGIN_COMMAND='todo-local-project --to-origin'}
-
 : ${TODOTXT_LOCAL_ORIGIN_INSERTION_ACTION:='prepend'}
 
 unset TODOTXT_MOVEELSEWHERE_SOURCE_WHAT
