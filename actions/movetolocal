@@ -50,7 +50,7 @@ destinationDir=
 
 extractDestinationDir()
 {
-    destinationDir="$(.
+    destinationDir="$(
 	TODOTXT_MOVEELSEWHERE_LIST_SOURCE_TASKS_ONLY=t "${scriptDir}/moveelsewhere" "$action" "$@" \
 	    | eval "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND"
 	exit ${PIPESTATUS[0]}	# Ignore the exit status of the extractor; what counts is [the validity of] its output.
