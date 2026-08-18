@@ -5,6 +5,7 @@ shopt -qs extglob
 : ${TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND='todo-local-project --to-dir'}
 : ${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND='zd --selection'}
 : ${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG="QUERY|''"}
+: ${TODOTXT_MOVETOLOCAL_INSERT_LOCAL_ORIGIN:=1}
 
 # Duplicated to ./movetoglobal
 # Shell command that is executed inside each local todo.txt file's directory
@@ -23,10 +24,20 @@ shopt -qs extglob
 export TODOTXT_MOVEELSEWHERE_SOURCE_WHAT='global / current local todo.txt file'
 export TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT='local task list in DIR'
 export TODOTXT_MOVEELSEWHERE_DEFAULT_TO_ALL=0
+insertLocalOriginArg=''
+if [ -n "$TODOTXT_LOCAL_ORIGIN_COMMAND" ]; then
+    if [ $TODOTXT_MOVETOLOCAL_INSERT_LOCAL_ORIGIN -eq 0 ]; then
+	insertLocalOriginArg='[-o|--insert-local-origin]'
+	export TODOTXT_MOVEELSEWHERE_ADDITIONAL_USAGE=$'      Inserts the origin +project of the original local task list into the task\n      text when --insert-local-origin|-o is given.'
+    else
+	insertLocalOriginArg='[-O|--no-insert-local-origin]'
+	export TODOTXT_MOVEELSEWHERE_ADDITIONAL_USAGE=$'      Does not insert the origin +project of the original local task list into\n      the task text when --no-insert-local-origin|-O is given.'
+    fi
+fi
 if [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" ]; then
-    export TODOTXT_MOVEELSEWHERE_DEST_ARG="[DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|-q|--query $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}]"
+    export TODOTXT_MOVEELSEWHERE_DEST_ARG="${insertLocalOriginArg}${insertLocalOriginArg:+ }[DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|-q|--query $TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}]"
 else
-    export TODOTXT_MOVEELSEWHERE_DEST_ARG="DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}"
+    export TODOTXT_MOVEELSEWHERE_DEST_ARG="${insertLocalOriginArg}${insertLocalOriginArg:+ }DIR${TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG:+|$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_ARG}"
 fi
 
 readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
@@ -64,6 +75,13 @@ lookupTargetDir()
 [ "$action" = "usage" ] \
     && TODOTXT_MOVEELSEWHERE_ACTION_NAME=movetolocal exec "${scriptDir}/moveelsewhere" usage "$@"
 
+case "$1" in
+    --insert-local-origin|-o)
+			TODOTXT_MOVETOLOCAL_INSERT_LOCAL_ORIGIN=1; shift;;
+    --no-insert-local-origin|-O)
+			TODOTXT_MOVETOLOCAL_INSERT_LOCAL_ORIGIN=0; shift;;
+esac
+
 if [ -d "$1" ]; then
     targetDir="${1?}"; shift
 elif [ -n "$TODOTXT_MOVETOLOCAL_DIR_EXTRACTOR_COMMAND" -a -n "$TODOTXT_MOVETOLOCAL_DIR_LOOKUP_COMMAND" ] && [[ "$1" = @(--query|-q) ]]; then
@@ -98,6 +116,25 @@ if [ -n "$TODOTXT_LOCAL_ORIGIN_COMMAND" ]; then
 	# doesn't complain if some tasks don't match (and also handles multiple
 	# TERM(s)). Ignore even when no removals were made.
 	export TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION="subst {@} $quotedSubstArgs || :"
+    fi
+
+    if [ $TODO_LOCAL -eq 1 ] \
+	&& [ $TODOTXT_MOVETOLOCAL_INSERT_LOCAL_ORIGIN -ne 0 ]
+    then
+	# Insert the local origin(s) of the source project to the task text after moving
+	# it to the destination local todo.txt file. When an extractor uses those to
+	# determine the destination directory automatically, this allows easy moving
+	# back and forth between local task lists without specifying the destination
+	# beyond the first time.
+	printf -v quotedTodoDir %q "${TODO_DIR:?}"
+	if origin="$(eval "$TODOTXT_LOCAL_ORIGIN_COMMAND $quotedTodoDir")" \
+	    && [ -n "$origin" ]
+	then
+	    # Insert the local origin(s) into the task text after moving it to the global
+	    # todo.txt file.
+	    printf -v TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION2 '%s {} %q' "$TODOTXT_LOCAL_ORIGIN_INSERTION_ACTION" "${origin//$'\n'/ }"
+	    export TODOTXT_MOVEELSEWHERE_POSTMOVE_ACTION2
+	fi
     fi
 fi
 

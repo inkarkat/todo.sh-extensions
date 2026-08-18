@@ -27,6 +27,7 @@ shift
 	    echo "      line(s) NR from the ${TODOTXT_MOVEELSEWHERE_SOURCE_WHAT:-current todo.txt file} to the ${TODOTXT_MOVEELSEWHERE_DESTINATION_WHAT:-${destArg}${destArg:+ }task list}."
 	    ;;
     esac
+    [ -z "$TODOTXT_MOVEELSEWHERE_ADDITIONAL_USAGE" ] || echo "$TODOTXT_MOVEELSEWHERE_ADDITIONAL_USAGE"
     echo ""
     exit
 }
