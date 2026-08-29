@@ -37,8 +37,8 @@ addRepoData()
 
 	    if [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " @${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; then
 		# Only add the context (non-master branch) if it has already been used in a task.
-		export TODOTXT_HERE_DESIGNATOR="@${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-		export TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT:-working copy context}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
+		TODOTXT_HERE_DESIGNATOR="@${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
+		TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT:-working copy context}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
 	    fi
 	fi
     fi
@@ -50,10 +50,14 @@ addRepoData()
 	    export TODOTXT_ADD_PREFIX="+${prefix} ${TODOTXT_ADD_PREFIX}"
 
 	    # Always add the project (current submodule), even if it has not been used yet.
-	    export TODOTXT_HERE_DESIGNATOR="+${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-	    export TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT:-working copy project}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
+	    TODOTXT_HERE_DESIGNATOR="+${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
+	    TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT:-working copy project}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
 	fi
     fi
+    # Always export the designator and scope name, even if they are empty, so that
+    # the here action doesn't fall back to tasks for the current system.
+    export TODOTXT_HERE_DESIGNATOR="${TODOTXT_HERE_DESIGNATOR:-}"
+    export TODOTXT_HERE_SCOPE_NAME="${TODOTXT_HERE_SCOPE_NAME:-working copy}"
 }
 
 determineLocalTodoDir()
