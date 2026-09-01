@@ -27,39 +27,53 @@ hasContraindication()
 	&& printf ' %s \n' "$allargs" | grep --quiet --fixed-strings --file <(printf ' %s \n' "${contraindications[@]}")
 }
 
+addLocalGitRepoSettings()
+{
+    local sigil="${1:?}"; shift
+    local localGitRepoCommand="${1?}"; shift
+    local localGitRepoContraindicationCommand="${1?}"; shift
+    local useHereOnlyIfExisting="${1?}"; shift
+    local localGitRepoWhat="${1?}"; shift
+
+    if [ -n "$localGitRepoCommand" ]; then
+	local prefix
+	prefix="$(eval "$localGitRepoCommand")"
+	if [ -n "$prefix" ] \
+	    && ! hasContraindication "$localGitRepoContraindicationCommand"
+	then
+	    export TODOTXT_ADD_PREFIX="${sigil}${prefix} ${TODOTXT_ADD_PREFIX}"
+
+	    if [ ! "$useHereOnlyIfExisting" ] \
+		|| { [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " ${sigil}${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; }
+	    then
+		TODOTXT_HERE_DESIGNATOR="${sigil}${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
+		case "$sigil" in
+		    +) sigilName=project;;
+		    @) sigilName=context;;
+		    *) printf >&2 'ASSERT: Unhandled sigil: %s\n' "$sigil"; exit 3;;
+		esac
+		TODOTXT_HERE_SCOPE_NAME="${localGitRepoWhat:-working copy $sigilName}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
+	    fi
+	fi
+    fi
+}
+
 addRepoData()
 {
-    local prefix
-    if [ -n "$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND" ]; then
-	prefix="$(eval "$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND")"
-	if [ -n "$prefix" ] \
-	    && ! hasContraindication "$TODOTXT_LOCAL_GITREPO_CONTEXT_CONTRAINDICATION_COMMAND"
-	then
-	    export TODOTXT_ADD_PREFIX="@${prefix} ${TODOTXT_ADD_PREFIX}"
+    addLocalGitRepoSettings \
+	@ \
+	"$TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND" \
+	"$TODOTXT_LOCAL_GITREPO_CONTEXT_CONTRAINDICATION_COMMAND" \
+	"$TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING" \
+	"$TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT"
 
-	    if [ ! "$TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING" ] \
-		|| { [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " @${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; }
-	    then
-		TODOTXT_HERE_DESIGNATOR="@${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-		TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT:-working copy context}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
-	    fi
-	fi
-    fi
-    if [ -n "$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND" ]; then
-	prefix="$(eval "$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND")"
-	if [ -n "$prefix" ] \
-	    && ! hasContraindication "$TODOTXT_LOCAL_GITREPO_PROJECT_CONTRAINDICATION_COMMAND"
-	then
-	    export TODOTXT_ADD_PREFIX="+${prefix} ${TODOTXT_ADD_PREFIX}"
+    addLocalGitRepoSettings \
+	+ \
+	"$TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND" \
+	"$TODOTXT_LOCAL_GITREPO_PROJECT_CONTRAINDICATION_COMMAND" \
+	"$TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING" \
+	"$TODOTXT_LOCAL_GITREPO_PROJECT_WHAT"
 
-	    if [ ! "$TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING" ] \
-		|| { [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " +${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; }
-	    then
-		TODOTXT_HERE_DESIGNATOR="+${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-		TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT:-working copy project}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
-	    fi
-	fi
-    fi
     # Always export the designator and scope name, even if they are empty, so that
     # the here action doesn't fall back to tasks for the current system.
     export TODOTXT_HERE_DESIGNATOR="${TODOTXT_HERE_DESIGNATOR:-}"
