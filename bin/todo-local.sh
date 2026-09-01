@@ -8,12 +8,14 @@ if [ "$TODOTXT_LOCAL_GITREPO_USE_SUPERPROJECT" ]; then
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND='! git-issubmodule 2>/dev/null || git-subname --reponame 2>/dev/null'}   # Add the current submodule name as project to each added task.
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_CONTRAINDICATION_COMMAND='prefix --exec git-superdo --no-header sublist \; + 2>/dev/null'}    # Don't add the submodule name as context if any other submodule is explicitly mentioned as a context in the task.
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT=submodule}
+    : ${TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING=}	# Always add the project (current submodule), even if it has not been used yet.
 else
     : ${TODOTXT_LOCAL_GITREPO_PROJECT_COMMAND=''}
 fi
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_COMMAND='git-brname --real-branch-only 2>/dev/null | grep --invert-match --fixed-strings --line-regexp "$(git-mbr --get 2>/dev/null)"'}    # Add the (non-master) branch name as context to each added task.
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_CONTRAINDICATION_COMMAND='prefix --exec git-br \; @ 2>/dev/null'}    # Don't add the branch name as context if any other branch is explicitly mentioned as a context in the task.
 : ${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT=branch}
+: ${TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING=t}  # Only add the context (non-master branch) if it has already been used in a task.
 
 hasContraindication()
 {
@@ -35,8 +37,9 @@ addRepoData()
 	then
 	    export TODOTXT_ADD_PREFIX="@${prefix} ${TODOTXT_ADD_PREFIX}"
 
-	    if [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " @${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; then
-		# Only add the context (non-master branch) if it has already been used in a task.
+	    if [ ! "$TODOTXT_LOCAL_GITREPO_CONTEXT_USE_FOR_HERE_ONLY_IF_EXISTING" ] \
+		|| { [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " @${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; }
+	    then
 		TODOTXT_HERE_DESIGNATOR="@${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
 		TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_CONTEXT_WHAT:-working copy context}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
 	    fi
@@ -49,9 +52,12 @@ addRepoData()
 	then
 	    export TODOTXT_ADD_PREFIX="+${prefix} ${TODOTXT_ADD_PREFIX}"
 
-	    # Always add the project (current submodule), even if it has not been used yet.
-	    TODOTXT_HERE_DESIGNATOR="+${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
-	    TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT:-working copy project}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
+	    if [ ! "$TODOTXT_LOCAL_GITREPO_PROJECT_USE_FOR_HERE_ONLY_IF_EXISTING" ] \
+		|| { [ -r "${TODO_DIR:?}/todo.txt" ] && grep --quiet -- " +${prefix}\( \|$\)" "${TODO_DIR:?}/todo.txt"; }
+	    then
+		TODOTXT_HERE_DESIGNATOR="+${prefix}${TODOTXT_HERE_DESIGNATOR:+ }${TODOTXT_HERE_DESIGNATOR}"
+		TODOTXT_HERE_SCOPE_NAME="${TODOTXT_LOCAL_GITREPO_PROJECT_WHAT:-working copy project}${TODOTXT_HERE_SCOPE_NAME:+ and }${TODOTXT_HERE_SCOPE_NAME}"
+	    fi
 	fi
     fi
     # Always export the designator and scope name, even if they are empty, so that
