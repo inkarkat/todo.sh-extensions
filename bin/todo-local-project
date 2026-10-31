@@ -8,48 +8,62 @@ readonly scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" 
 readonly projectDir="${scriptDir}/.."
 readonly varDir="${projectDir}/var"
 
-printUsage()
+LONGUSAGE=
+printLongUsage()
 {
-    cat <<HELPTEXT
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    $LONGUSAGE cat <<HELPTEXT
 Synthesize (and record) an origin +project [@work] for the passed local todo.txt
 LOCAL-TODO-DIR / a project for the current working directory. Fails with 1 if
 the origin +project cannot be determined, and with 5 if not in a project
 directory.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: todo.sh -p list ... | %q %s\n' "$(basename "$1")" '--to-dir'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Discover and record origin +project [@work] from source directories.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--discover'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 List all recorded origin +project [@work].
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-l|--list'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 List all origin +project [@work] and the recorded corresponding DIRs.
 HELPTEXT
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '-s|--show-records'
-    echo
+    $LONGUSAGE echo
     printf 'Usage: %q %s\n' "$(basename "$1")" '--to-origin [LOCAL-TODO-DIR]'
-    echo
-    cat <<HELPTEXT
+    $LONGUSAGE echo
+    $LONGUSAGE cat <<HELPTEXT
 Print the corresponding recorded directory if a single recorded origin +project
 [@work] is found in the task text read from standard input. Fails with 5 if no
 or with 1 if multiple recorded origin +projects are found in the task text.
 HELPTEXT
 }
-typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
+printShortUsage()
+{
+    LONGUSAGE=: printLongUsage "$1"
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
 
+typeset -a pager=("${PAGER:-less}" --RAW-CONTROL-CHARS); [ -t 1 ] || pager=()
 action='printUsage'
 case "$1" in
-    --help|-h|-\?)      shift; printUsage "$0"; exit 0;;
+    --help|-h|-\?)      shift; printLongUsage "$0"; exit 0;;
     --to-origin)        shift; action=toOrigin; pager=();;
     --to-dir)           shift; action=toDir; pager=();;
     --discover)		shift; action=discover; pager=();;
